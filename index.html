@@ -130,10 +130,15 @@
 
       <!-- Aquí aparece la imagen de la cámara mientras escaneas -->
       <div id="zona-camara" class="hidden space-y-2">
-        <div id="lector" class="rounded-xl overflow-hidden bg-black w-full" style="min-height: 300px;"></div>
-        <div class="grid grid-cols-2 gap-2">
-          <label for="foto-codigo-input" class="text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm cursor-pointer">📸 Foto al código</label>
-          <button onclick="cerrarEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm">Cerrar cámara</button>
+        <div class="relative">
+          <div id="lector" class="rounded-xl overflow-hidden bg-black w-full" style="min-height: 300px;"></div>
+          <!-- Franja guía: pon el código de barras dentro (solo es una ayuda visual, no recorta nada) -->
+          <div class="pointer-events-none absolute inset-x-[5%] top-1/2 -translate-y-1/2 h-[45%] border-2 border-emerald-400/80 rounded-lg"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="capturarFotograma()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">⦿ Capturar</button>
+          <label for="foto-codigo-input" class="text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm cursor-pointer">📸 Foto</label>
+          <button onclick="cerrarEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm">Cerrar</button>
         </div>
       </div>
 
@@ -824,10 +829,10 @@
           return;
         }
 
-        avisoEscaner('Apunta al código de barras en horizontal, a unos 10–15 cm.');
+        avisoEscaner('Pon el código de barras en horizontal dentro de la franja verde, a unos 15–20 cm. Si no lo lee solo, pulsa «⦿ Capturar».');
         clearTimeout(consejoCamara);
         consejoCamara = setTimeout(() => {
-          if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. O pulsa «📸 Foto al código».');
+          if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. O pulsa «⦿ Capturar» para analizar la imagen a máxima calidad.');
         }, 10000);
       } catch (e) {
         await cerrarEscanerCodigo();
@@ -859,15 +864,24 @@
 
       // Cámara trasera en HD (1280×720) para que el código se vea nítido.
       // Si el móvil no acepta esa resolución, volvemos a intentarlo sin pedirla.
-      try {
-        controlesZXing = await lector.decodeFromConstraints(
-          { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-          video, alResultado);
-      } catch (e) {
-        if (/NotAllowed|Permission/i.test(String(e && (e.name || e.message || e)))) throw e;
-        controlesZXing = await lector.decodeFromConstraints(
-          { video: { facingMode: 'environment' }, audio: false }, video, alResultado);
+      // Probamos de más a menos calidad: Full HD, HD y, si nada, lo que dé el móvil.
+      const intentos = [
+        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        { facingMode: 'environment' }
+      ];
+      let ultimoError = null;
+      for (const videoPedido of intentos) {
+        try {
+          controlesZXing = await lector.decodeFromConstraints({ video: videoPedido, audio: false }, video, alResultado);
+          ultimoError = null;
+          break;
+        } catch (e) {
+          if (/NotAllowed|Permission/i.test(String(e && (e.name || e.message || e)))) throw e;
+          ultimoError = e;
+        }
       }
+      if (ultimoError) throw ultimoError;
 
       // Si el móvil lo admite, pedimos enfoque continuo (si no, no pasa nada).
       try {
@@ -881,7 +895,119 @@
       // Apoyo rápido: si el navegador tiene lector nativo (BarcodeDetector), también mira el vídeo.
       // Lo que lea antes, ZXing o el nativo, gana. Si el nativo da errores, se apaga solo.
       iniciarDetectorNativo(video);
+
+      // Zoom ×2 si la cámara lo permite, y análisis "a fondo" de la franja central.
+      aplicarZoom(video, 2);
+      analizarFotogramas(video, ZX);
     }
+    // ---- Zoom de la cámara: acerca la imagen para que las barras se vean más grandes ----
+    // Así puedes tener el móvil a una distancia en la que enfoca bien y aun así el código sale grande.
+    async function aplicarZoom(video, factor = 2) {
+      try {
+        const pista = video.srcObject && video.srcObject.getVideoTracks()[0];
+        const cap = pista && pista.getCapabilities ? pista.getCapabilities() : null;
+        if (!cap || !cap.zoom || !(cap.zoom.max > 1)) return false;
+        const zoom = Math.min(factor, cap.zoom.max);
+        await pista.applyConstraints({ advanced: [{ zoom }] });
+        return true;
+      } catch (_) { return false; }
+    }
+
+    // ---- Análisis de la franja central del vídeo con el lector "a fondo" (el de la foto) ----
+    // Cada 700 ms recorta la zona del recuadro guía, la amplía y la pasa por ZXing con TRY_HARDER.
+    let bucleFotogramas = null;
+    function analizarFotogramas(video, ZX) {
+      pararAnalisisFotogramas();
+      let pistas;
+      const L = window.ZXing;
+      if (L && L.DecodeHintType && L.BarcodeFormat) {
+        const B = L.BarcodeFormat;
+        pistas = new Map();
+        pistas.set(L.DecodeHintType.POSSIBLE_FORMATS,
+          [B.EAN_13, B.EAN_8, B.UPC_A, B.UPC_E, B.CODE_128, B.CODE_39, B.ITF, B.CODABAR].filter(f => f !== undefined));
+        pistas.set(L.DecodeHintType.TRY_HARDER, true);
+      }
+      const lectorFondo = new ZX.BrowserMultiFormatReader(pistas);
+      let ocupado = false;
+      let contraste = false;   // alterna normal / alto contraste en cada vuelta
+
+      const vuelta = async () => {
+        if (!controlesZXing || yaLeido) return;
+        if (!ocupado && video.readyState >= 2 && video.videoWidth) {
+          ocupado = true;
+          try {
+            // Franja central: 90 % del ancho y 45 % del alto (donde está el recuadro guía).
+            const vw = video.videoWidth, vh = video.videoHeight;
+            const sx = Math.round(vw * 0.05), sw = Math.round(vw * 0.9);
+            const sh = Math.round(vh * 0.45), sy = Math.round((vh - sh) / 2);
+            const escala = Math.max(1, 1400 / sw);           // la ampliamos si es pequeña
+            const lienzo = document.createElement('canvas');
+            lienzo.width = Math.round(sw * escala);
+            lienzo.height = Math.round(sh * escala);
+            const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, lienzo.width, lienzo.height);
+            if (contraste) {
+              const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+              const px = datos.data;
+              for (let i = 0; i < px.length; i += 4) {
+                let v = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+                v = Math.max(0, Math.min(255, (v - 128) * 1.6 + 128));
+                px[i] = px[i + 1] = px[i + 2] = v;
+              }
+              ctx.putImageData(datos, 0, 0);
+            }
+            contraste = !contraste;
+            const resultado = await conLimite(lectorFondo.decodeFromImageUrl(lienzo.toDataURL('image/jpeg', 0.9)), 2500);
+            if (resultado && resultado.getText()) { alLeerCodigo(resultado.getText()); return; }
+          } catch (_) { /* aún no lo encuentra: seguimos */ }
+          finally { ocupado = false; }
+        }
+        bucleFotogramas = setTimeout(vuelta, 700);
+      };
+      bucleFotogramas = setTimeout(vuelta, 900);
+    }
+
+    function pararAnalisisFotogramas() {
+      clearTimeout(bucleFotogramas);
+      bucleFotogramas = null;
+    }
+
+    // ---- Botón "Capturar": foto a máxima calidad sin salir de la app ----
+    // Usa la foto de alta resolución de la cámara (si el móvil lo permite) o el fotograma actual,
+    // y la analiza con los mismos lectores que "Foto al código".
+    async function capturarFotograma() {
+      const video = document.getElementById('video-lector');
+      if (!video || !video.srcObject) {
+        avisoEscaner('Abre primero la cámara con «▥ Código de barras».', 'error');
+        return;
+      }
+      avisoEscaner('Capturando y analizando…');
+      let foto = null;
+      try {
+        const pista = video.srcObject.getVideoTracks()[0];
+        if (window.ImageCapture && pista) foto = await conLimite(new ImageCapture(pista).takePhoto(), 4000);
+      } catch (_) { foto = null; }
+      if (!foto && video.videoWidth) {
+        const lienzo = document.createElement('canvas');
+        lienzo.width = video.videoWidth;
+        lienzo.height = video.videoHeight;
+        lienzo.getContext('2d').drawImage(video, 0, 0);
+        foto = await new Promise(res => lienzo.toBlob(res, 'image/jpeg', 0.95));
+      }
+      if (!foto) {
+        avisoEscaner('No se pudo capturar la imagen. Prueba con «📸 Foto al código».', 'error');
+        return;
+      }
+      try {
+        const archivo = foto instanceof File ? foto : new File([foto], 'captura.jpg', { type: foto.type || 'image/jpeg' });
+        const codigo = await decodificarFotoCodigo(archivo);
+        if (codigo) { alLeerCodigo(codigo); return; }
+        avisoEscaner('En esa captura no he visto el código. Centra el código en la franja verde, que se vea nítido y sin reflejos, y pulsa «Capturar» otra vez.', 'error');
+      } catch (_) {
+        avisoEscaner('No se pudo analizar la captura. Prueba con «📸 Foto al código».', 'error');
+      }
+    }
+
 
     // ---- Lector nativo (BarcodeDetector) sobre el vídeo, como apoyo ----
     let bucleNativo = null;
@@ -955,6 +1081,7 @@
     async function cerrarEscanerCodigo() {
       clearTimeout(consejoCamara);
       pararDetectorNativo();
+      pararAnalisisFotogramas();
       // Parar ZXing (y apagar la cámara)
       const controles = controlesZXing;
       controlesZXing = null;
