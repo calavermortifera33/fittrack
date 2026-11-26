@@ -829,7 +829,7 @@
           return;
         }
 
-        avisoEscaner('Pon el código de barras en horizontal dentro de la franja verde, a unos 15–20 cm. Si no lo lee solo, pulsa «⦿ Capturar».');
+        avisoEscaner('📷 Escaneando en directo… apunta recto al código, en horizontal, a unos 15–20 cm.');
         clearTimeout(consejoCamara);
         consejoCamara = setTimeout(() => {
           if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. O pulsa «⦿ Capturar» para analizar la imagen a máxima calidad.');
@@ -840,48 +840,35 @@
       }
     }
 
-    // Lector ZXing: crea un <video> dentro de #lector y analiza la imagen continuamente.
-    // En directo NO usamos TRY_HARDER (es pesado para el vídeo); ese modo se queda para la foto.
+    // Lector ZXing en directo: crea un <video> dentro de #lector y lo analiza continuamente.
+    // Versión sencilla: solo los formatos de los productos de supermercado, sin opciones pesadas.
     async function iniciarZXing(ZX) {
       const visor = document.getElementById('lector');
       visor.innerHTML = '<video id="video-lector" playsinline muted autoplay ' +
         'style="width:100%;height:100%;min-height:300px;object-fit:cover;display:block;"></video>';
       const video = document.getElementById('video-lector');
 
-      // Formatos que puede leer (sin TRY_HARDER en el vídeo, para que vaya fluido).
+      // Solo formatos básicos: EAN-13, EAN-8, UPC-A y CODE-128.
       let pistas;
       const L = window.ZXing;
       if (L && L.DecodeHintType && L.BarcodeFormat) {
         const B = L.BarcodeFormat;
         pistas = new Map();
-        pistas.set(L.DecodeHintType.POSSIBLE_FORMATS,
-          [B.EAN_13, B.EAN_8, B.UPC_A, B.UPC_E, B.CODE_128, B.CODE_39, B.ITF, B.CODABAR].filter(f => f !== undefined));
+        pistas.set(L.DecodeHintType.POSSIBLE_FORMATS, [B.EAN_13, B.EAN_8, B.UPC_A, B.CODE_128]);
       }
+      const lector = new ZX.BrowserMultiFormatReader(pistas);
+      const alResultado = resultado => { if (resultado && resultado.getText()) alLeerCodigo(resultado.getText()); };
 
-      // Un intento cada 180 ms: suficiente para leer sin saturar el móvil.
-      const lector = new ZX.BrowserMultiFormatReader(pistas, { delayBetweenScanAttempts: 180 });
-      const alResultado = resultado => { if (resultado) alLeerCodigo(resultado.getText()); };
-
-      // Cámara trasera en HD (1280×720) para que el código se vea nítido.
-      // Si el móvil no acepta esa resolución, volvemos a intentarlo sin pedirla.
-      // Probamos de más a menos calidad: Full HD, HD y, si nada, lo que dé el móvil.
-      const intentos = [
-        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-        { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        { facingMode: 'environment' }
-      ];
-      let ultimoError = null;
-      for (const videoPedido of intentos) {
-        try {
-          controlesZXing = await lector.decodeFromConstraints({ video: videoPedido, audio: false }, video, alResultado);
-          ultimoError = null;
-          break;
-        } catch (e) {
-          if (/NotAllowed|Permission/i.test(String(e && (e.name || e.message || e)))) throw e;
-          ultimoError = e;
-        }
+      // Cámara trasera en HD (1280×720). Si el móvil no la acepta, lo intentamos sin pedir resolución.
+      try {
+        controlesZXing = await lector.decodeFromConstraints(
+          { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+          video, alResultado);
+      } catch (e) {
+        if (/NotAllowed|Permission/i.test(String(e && (e.name || e.message || e)))) throw e;
+        controlesZXing = await lector.decodeFromConstraints(
+          { video: { facingMode: 'environment' }, audio: false }, video, alResultado);
       }
-      if (ultimoError) throw ultimoError;
 
       // Si el móvil lo admite, pedimos enfoque continuo (si no, no pasa nada).
       try {
@@ -892,14 +879,11 @@
         }
       } catch (_) { /* no pasa nada */ }
 
-      // Apoyo rápido: si el navegador tiene lector nativo (BarcodeDetector), también mira el vídeo.
-      // Lo que lea antes, ZXing o el nativo, gana. Si el nativo da errores, se apaga solo.
+      // Bucle ligero con el lector nativo del navegador (BarcodeDetector) cada 200 ms.
+      // Lo que lea antes, ZXing o el nativo, gana.
       iniciarDetectorNativo(video);
-
-      // Zoom ×2 si la cámara lo permite, y análisis "a fondo" de la franja central.
-      aplicarZoom(video, 2);
-      analizarFotogramas(video, ZX);
     }
+
     // ---- Zoom de la cámara: acerca la imagen para que las barras se vean más grandes ----
     // Así puedes tener el móvil a una distancia en la que enfoca bien y aun así el código sale grande.
     async function aplicarZoom(video, factor = 2) {
@@ -1036,11 +1020,11 @@
           }
           fallos = 0;
         } catch (_) {
-          if (++fallos >= 5) return;                     // da problemas: lo dejamos y sigue solo ZXing
+          fallos++;                                      // si falla, sigue intentándolo pero más despacio
         }
-        bucleNativo = setTimeout(mirar, 250);
+        bucleNativo = setTimeout(mirar, fallos >= 5 ? 1000 : 200);
       };
-      bucleNativo = setTimeout(mirar, 400);
+      bucleNativo = setTimeout(mirar, 200);
     }
 
     function pararDetectorNativo() {
