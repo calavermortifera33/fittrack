@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- NUEVO: datos para que el móvil la trate como una app instalable -->
+  <meta name="theme-color" content="#020617" />
+  <meta name="description" content="Macros, pesas, calistenia y calistenia lastrada con progresión automática." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <!-- iPhone / iPad -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="FitTrack" />
+  <title>FitTrack 4-en-1 — Macros, Pesas, Calistenia y Lastre</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Librería para leer códigos de barras con la cámara -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen max-w-md mx-auto p-4" style="padding-top:max(1rem, env(safe-area-inset-top)); padding-bottom:max(1rem, env(safe-area-inset-bottom));">
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold text-sky-400">FitTrack 4-en-1</h1>
+    <p class="text-xs text-slate-400">1. Macros · 2. Pesas · 3. Calistenia · 4. Calistenia lastrada</p>
+  </header>
+
+  <!-- NUEVO: SELECTOR DE DÍA.
+       Todo lo que apuntes se guarda con esta fecha. Por defecto es hoy,
+       pero puedes cambiarla para ver o completar días anteriores. -->
+  <div class="flex items-center gap-2 mb-5">
+    <label for="fecha-input" class="text-xs text-slate-400">Día:</label>
+    <input id="fecha-input" type="date" onchange="render()"
+      class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+    <button onclick="irAHoy()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-2 rounded-xl text-xs">
+      Hoy
+    </button>
+  </div>
+
+  <!-- BLOQUE 1: NUTRICIÓN / MACROS -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-5 space-y-3">
+    <div class="flex justify-between items-center">
+      <h2 id="titulo-nutricion" class="text-sm font-semibold text-sky-300">1. Nutrición y Macros (hoy)</h2>
+      <span id="resumen-kcal" class="text-sm font-bold text-sky-400">0 / 2400 kcal</span>
+    </div>
+
+    <!-- NUEVO: barras de progreso para kcal, proteínas, carbos y grasas -->
+    <div id="barras-macros" class="space-y-1.5"></div>
+
+    <!-- NUEVO: editar tus objetivos diarios -->
+    <details class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-2">
+      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">Mis objetivos diarios (editar)</summary>
+      <div class="space-y-2 pt-3">
+        <div class="grid grid-cols-4 gap-2">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Kcal</label>
+            <input id="obj-kcal" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Prot. (g)</label>
+            <input id="obj-p" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Carbos (g)</label>
+            <input id="obj-c" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Grasas (g)</label>
+            <input id="obj-f" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+        </div>
+        <p id="aviso-objetivos" class="text-[11px] text-slate-400"></p>
+        <div class="flex gap-2">
+          <button onclick="restablecerObjetivos()" class="flex-1 bg-slate-800 border border-slate-700 hover:bg-slate-700 py-2 rounded-xl text-sm">Restablecer</button>
+          <button onclick="guardarObjetivos()" class="flex-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">Guardar objetivos</button>
+        </div>
+      </div>
+    </details>
+
+    <!-- BUSCAR ALIMENTO (siempre visible, funciona fuera de Claude).
+         1) Código de barras con la cámara o escrito a mano -> Open Food Facts.
+         2) Buscador por nombre -> Open Food Facts (toca un resultado para usarlo).
+         3) Foto de la TABLA NUTRICIONAL impresa -> apoyo para revisar/rellenar. -->
+    <div id="bloque-escaner" class="space-y-2 bg-slate-800/60 border border-slate-700 rounded-xl p-3">
+      <p class="text-xs font-semibold text-emerald-300">Buscar alimento</p>
+
+      <!-- Buscador por nombre -->
+      <div class="flex gap-2">
+        <input id="busqueda-input" type="search" enterkeyhint="search" placeholder="Nombre (ej. yogur griego hacendado)"
+          onkeydown="if (event.key === 'Enter') buscarPorNombre()"
+          class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <button onclick="buscarPorNombre()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-2 rounded-xl text-sm">Buscar</button>
+      </div>
+      <!-- Aquí salen los resultados: toca uno para rellenar "Mis alimentos" -->
+      <ul id="resultados-busqueda" class="space-y-1.5 text-xs"></ul>
+
+      <div class="grid grid-cols-2 gap-2">
+        <button id="btn-camara" onclick="abrirEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 font-semibold py-2 rounded-xl text-sm">
+          ▥ Código de barras
+        </button>
+        <label class="text-center bg-slate-700 hover:bg-slate-600 font-semibold py-2 rounded-xl text-sm cursor-pointer">
+          📷 Foto tabla nutricional
+          <input id="foto-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoEtiqueta(this)" />
+        </label>
+      </div>
+      <p class="text-[11px] text-slate-500">La foto es solo para la <b>tabla nutricional impresa</b> de un envase, no para platos ni alimentos sueltos.</p>
+
+      <!-- Aquí aparece la imagen de la cámara mientras escaneas -->
+      <div id="zona-camara" class="hidden space-y-2">
+        <div id="lector" class="rounded-xl overflow-hidden bg-black"></div>
+        <button onclick="cerrarEscanerCodigo()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm">Cerrar cámara</button>
+      </div>
+
+      <!-- Si la cámara no va, puedes escribir el número que hay debajo de las barras -->
+      <div class="flex gap-2">
+        <input id="codigo-input" type="text" inputmode="numeric" placeholder="Nº del código de barras (ej. 8410000…)"
+          onkeydown="if (event.key === 'Enter') buscarCodigo(this.value)"
+          class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <button onclick="buscarCodigo(document.getElementById('codigo-input').value)" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-xl text-sm">Buscar</button>
+      </div>
+
+      <p id="estado-escaner" class="text-[11px] text-slate-400"></p>
+    </div>
+
+    <div class="flex gap-2 pt-1">
+      <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
+           así aparecen tanto los alimentos de base como los tuyos. -->
+      <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm"></select>
+      <input id="gramos-input" type="number" placeholder="g" min="1" class="w-20 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+      <button onclick="addFood()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-2 rounded-xl text-sm">
+        +
+      </button>
+    </div>
+
+    <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
+
+    <!-- NUEVO: crear tus propios alimentos. Copia los datos "por 100 g" de la etiqueta. -->
+    <details id="panel-alimentos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-2">
+      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">Mis alimentos (añadir, revisar o borrar)</summary>
+      <div class="space-y-2 pt-3">
+        <!-- Vista previa de la foto de la etiqueta: se queda visible mientras revisas los números -->
+        <div id="caja-foto" class="hidden space-y-1">
+          <img id="vista-previa" alt="Foto de la tabla nutricional" class="w-full max-h-72 object-contain rounded-xl bg-black" />
+          <div class="flex justify-between items-center">
+            <span class="text-[11px] text-slate-400">Compara con la columna «por 100 g».</span>
+            <button onclick="quitarFoto()" class="text-[11px] text-slate-400 hover:text-rose-400 underline">Quitar foto</button>
+          </div>
+        </div>
+        <input id="nuevo-nombre" type="text" placeholder="Nombre (ej. Yogur griego)" maxlength="40"
+          class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <p class="text-[11px] text-slate-400">Valores por 100 g (míralos en la etiqueta):</p>
+        <div class="grid grid-cols-4 gap-2">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Kcal</label>
+            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Prot. (g)</label>
+            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Carbos (g)</label>
+            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Grasas (g)</label>
+            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+          </div>
+        </div>
+        <p id="aviso-alimento" class="text-[11px] text-rose-400"></p>
+        <button onclick="addCustomFood()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">
+          Guardar alimento
+        </button>
+        <ul id="lista-mis-alimentos" class="space-y-1.5 text-xs text-slate-300 pt-1"></ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+    <h2 class="text-sm font-semibold text-emerald-300">2–4. Entrenamiento y Progresión</h2>
+
+    <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm">
+      <optgroup label="2. Fuerza con pesas (progresión por carga)">
+        <option value="sentadilla_pesa">Sentadilla con pesa / barra</option>
+        <option value="press_banca">Press de banca / mancuernas</option>
+        <option value="remo_pesa">Remo con pesa / barra</option>
+      </optgroup>
+      <optgroup label="3. Calistenia peso corporal (sin lastre)">
+        <option value="flexiones">Flexiones estándar</option>
+        <option value="dominadas_libre">Dominadas libres</option>
+        <option value="fondos_libre">Fondos en paralelas (sin lastre)</option>
+        <option value="sentadilla_libre">Sentadilla libre</option>
+      </optgroup>
+      <optgroup label="4. Calistenia lastrada (peso corporal + lastre)">
+        <option value="dominadas_lastradas">Dominadas lastradas</option>
+        <option value="fondos_lastrados">Fondos en paralelas lastrados</option>
+        <option value="flexiones_lastradas">Flexiones lastradas</option>
+      </optgroup>
+    </select>
+
+    <p id="info-modalidad" class="text-[11px] text-slate-400"></p>
+
+    <!-- NUEVO: aquí se muestra tu último registro de este ejercicio y qué toca hoy -->
+    <div id="ultimo-registro" class="text-[11px]"></div>
+
+    <div class="grid grid-cols-3 gap-2">
+      <div id="campo-carga">
+        <label id="label-carga" class="block text-[11px] text-slate-400 mb-1">Peso (kg)</label>
+        <input id="peso-input" type="number" step="0.5" placeholder="20" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Series</label>
+        <input id="series-input" type="number" placeholder="3" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-[11px] text-slate-400 mb-1">Reps</label>
+        <input id="reps-input" type="number" placeholder="10" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+      </div>
+    </div>
+
+    <button onclick="addWorkout()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 rounded-xl text-sm">
+      Guardar registro y calcular progresión
+    </button>
+    <!-- NUEVO: mensaje tras guardar (o si falta algún dato) -->
+    <p id="aviso-entreno" class="text-[11px] text-slate-400"></p>
+
+    <div id="lista-entrenos" class="space-y-2.5 pt-2"></div>
+  </section>
+
+  <!-- NUEVO: COPIA DE SEGURIDAD. Tus datos viven en este navegador; con esto
+       puedes pasarlos a otro móvil, a la app instalada o guardarlos por si acaso. -->
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mt-5 space-y-3">
+    <h2 class="text-sm font-semibold text-slate-300">Copia de seguridad</h2>
+    <p class="text-[11px] text-slate-400">Descarga un archivo con todas tus comidas, entrenos, alimentos y objetivos, o recupéralos desde uno.</p>
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="exportarDatos()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 py-2 rounded-xl text-sm">⬇ Exportar</button>
+      <label class="text-center bg-slate-800 border border-slate-700 hover:bg-slate-700 py-2 rounded-xl text-sm cursor-pointer">
+        ⬆ Importar
+        <input type="file" accept="application/json,.json" class="hidden" onchange="importarDatos(this)" />
+      </label>
+    </div>
+    <p id="aviso-copia" class="text-[11px] text-slate-400"></p>
+  </section>
+
+  <!-- NUEVO: ventanita para confirmar antes de borrar -->
+  <div id="dialogo" class="hidden fixed inset-0 bg-black/60 items-center justify-center p-6 z-50">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 w-full max-w-xs space-y-4">
+      <p id="dialogo-texto" class="text-sm"></p>
+      <div class="flex gap-2">
+        <button id="dialogo-no" class="flex-1 bg-slate-800 hover:bg-slate-700 py-2 rounded-xl text-sm">Cancelar</button>
+        <button id="dialogo-si" class="flex-1 bg-rose-500 hover:bg-rose-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">Borrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FOOD_DB = {
+      pollo: { name: 'Pechuga de pollo', kcal: 165, p: 31, c: 0, f: 3.6 },
+      arroz: { name: 'Arroz blanco cocido', kcal: 130, p: 2.7, c: 28, f: 0.3 },
+      avena: { name: 'Avena', kcal: 389, p: 17, c: 66, f: 7 },
+      huevo: { name: 'Huevo entero', kcal: 155, p: 13, c: 1.1, f: 11 }
+    };
+
+    // Modalidades: 'pesas' | 'calistenia' | 'lastrada'
+    const EXERCISE_DB = {
+      sentadilla_pesa: { name: 'Sentadilla con pesa', modality: 'pesas', minReps: 8, maxReps: 12, stepKg: 2.5 },
+      press_banca: { name: 'Press de banca', modality: 'pesas', minReps: 8, maxReps: 12, stepKg: 2.5 },
+      remo_pesa: { name: 'Remo con pesa', modality: 'pesas', minReps: 8, maxReps: 12, stepKg: 2.5 },
+
+      flexiones: { name: 'Flexiones estándar', modality: 'calistenia', minReps: 10, maxReps: 20, nextVariant: 'flexiones declinadas o diamante' },
+      dominadas_libre: { name: 'Dominadas libres', modality: 'calistenia', minReps: 6, maxReps: 12, nextVariant: 'dominadas estrictas lentas o pasar a dominadas lastradas' },
+      fondos_libre: { name: 'Fondos en paralelas (sin lastre)', modality: 'calistenia', minReps: 8, maxReps: 15, nextVariant: 'fondos con pausa abajo o pasar a fondos lastrados' },
+      sentadilla_libre: { name: 'Sentadilla libre', modality: 'calistenia', minReps: 15, maxReps: 25, nextVariant: 'sentadilla búlgara o tempo controlado' },
+
+      dominadas_lastradas: { name: 'Dominadas lastradas', modality: 'lastrada', minReps: 5, maxReps: 10, stepKg: 2.5 },
+      fondos_lastrados: { name: 'Fondos en paralelas lastrados', modality: 'lastrada', minReps: 6, maxReps: 12, stepKg: 2.5 },
+      flexiones_lastradas: { name: 'Flexiones lastradas', modality: 'lastrada', minReps: 8, maxReps: 15, stepKg: 2.5 }
+    };
+
+    // Objetivos por defecto. Los que tú guardes desde la pantalla se guardan
+    // en el navegador ('ft4_targets') y tienen prioridad sobre estos.
+    const TARGETS_POR_DEFECTO = { kcal: 2400, p: 160, c: 260, f: 70 };
+
+    function cargarObjetivos() {
+      try {
+        const guardados = JSON.parse(localStorage.getItem('ft4_targets') || 'null');
+        if (guardados) return { ...TARGETS_POR_DEFECTO, ...guardados };
+      } catch (e) { /* usamos los de por defecto */ }
+      return { ...TARGETS_POR_DEFECTO };
+    }
+
+    let TARGETS = cargarObjetivos();
+
+    // ---------- FECHAS ----------
+    // Devuelve la fecha de hoy como texto "AAAA-MM-DD" (por ejemplo "2026-11-26"),
+    // usando la hora de TU zona, no la de Londres ni la de ningún servidor.
+    function hoy() {
+      const d = new Date();
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const dia = String(d.getDate()).padStart(2, '0');
+      return `${d.getFullYear()}-${mes}-${dia}`;
+    }
+
+    // Convierte "2026-11-26" en algo legible como "jue 26 nov".
+    function fechaBonita(fechaTexto) {
+      const [a, m, d] = fechaTexto.split('-').map(Number);
+      return new Date(a, m - 1, d).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+    }
+
+    // La fecha elegida arriba en "Día:".
+    function fechaSeleccionada() {
+      return document.getElementById('fecha-input').value || hoy();
+    }
+
+    function irAHoy() {
+      document.getElementById('fecha-input').value = hoy();
+      render();
+    }
+
+    // Crea un identificador único para cada registro (para poder borrarlo luego).
+    function nuevoId() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+
+    // ---------- GUARDAR EN EL NAVEGADOR ----------
+    // Algunos navegadores (o el modo incógnito) no dejan guardar datos.
+    // Con try/catch la app sigue funcionando igualmente, aunque sin recordar nada.
+    function leerGuardado(clave) {
+      try { return JSON.parse(localStorage.getItem(clave) || '[]'); } catch (e) { return []; }
+    }
+    function guardar(clave, valor) {
+      try { localStorage.setItem(clave, JSON.stringify(valor)); } catch (e) { /* sin guardado */ }
+    }
+
+    // ---------- VENTANA DE CONFIRMACIÓN PROPIA ----------
+    // En vez del confirm() del navegador (que algunos sitios bloquean),
+    // mostramos nuestra propia ventanita con "Cancelar" y "Borrar".
+    function confirmar(mensaje) {
+      return new Promise(resolve => {
+        const fondo = document.getElementById('dialogo');
+        document.getElementById('dialogo-texto').textContent = mensaje;
+        fondo.classList.remove('hidden');
+        fondo.classList.add('flex');
+        const cerrar = respuesta => {
+          fondo.classList.add('hidden');
+          fondo.classList.remove('flex');
+          resolve(respuesta);
+        };
+        document.getElementById('dialogo-si').onclick = () => cerrar(true);
+        document.getElementById('dialogo-no').onclick = () => cerrar(false);
+      });
+    }
+
+    // ---------- CARGAR Y MIGRAR DATOS ANTIGUOS ----------
+    // Las versiones anteriores guardaban comidas y entrenos SIN fecha.
+    // Aquí les ponemos la fecha de hoy para que no se pierda nada.
+    function cargarDatos() {
+      const foods = leerGuardado('ft4_foods');
+      const workouts = leerGuardado('ft4_workouts');
+
+      const foodsMigradas = foods.map(item => ({
+        ...item,
+        id: item.id || nuevoId(),
+        date: item.date || hoy()
+      }));
+
+      const workoutsMigrados = workouts.map(w => {
+        if (w.exKey) return w; // ya está en el formato nuevo
+        // Formato antiguo: "id" era el nombre del ejercicio (p. ej. "press_banca").
+        return {
+          id: nuevoId(),
+          exKey: w.id,
+          date: hoy(),
+          createdAt: Date.now(),
+          weight: w.weight,
+          sets: w.sets,
+          reps: w.reps
+        };
+      });
+
+      return { foods: foodsMigradas, workouts: workoutsMigrados };
+    }
+
+    const state = cargarDatos();
+
+    function saveState() {
+      guardar('ft4_foods', state.foods);
+      guardar('ft4_workouts', state.workouts);
+    }
+    saveState(); // guarda ya los datos migrados
+
+    // ---------- MIS OBJETIVOS ----------
+    // Copia los objetivos actuales en las casillas del panel "Mis objetivos".
+    function rellenarFormularioObjetivos() {
+      document.getElementById('obj-kcal').value = TARGETS.kcal;
+      document.getElementById('obj-p').value = TARGETS.p;
+      document.getElementById('obj-c').value = TARGETS.c;
+      document.getElementById('obj-f').value = TARGETS.f;
+    }
+
+    function guardarObjetivos() {
+      const aviso = document.getElementById('aviso-objetivos');
+      const leer = id => parseFloat(document.getElementById(id).value);
+      const nuevos = { kcal: leer('obj-kcal'), p: leer('obj-p'), c: leer('obj-c'), f: leer('obj-f') };
+
+      // Todos deben ser números mayores que 0.
+      if (Object.values(nuevos).some(n => isNaN(n) || n <= 0)) {
+        aviso.className = 'text-[11px] text-rose-400';
+        aviso.textContent = 'Pon un número mayor que 0 en cada casilla.';
+        return;
+      }
+      nuevos.kcal = Math.round(nuevos.kcal);
+      TARGETS = nuevos;
+      try { localStorage.setItem('ft4_targets', JSON.stringify(TARGETS)); } catch (e) { /* sin guardado */ }
+
+      // Pista útil: kcal que salen de tus macros (proteína y carbos 4 kcal/g, grasa 9 kcal/g).
+      const kcalMacros = Math.round(nuevos.p * 4 + nuevos.c * 4 + nuevos.f * 9);
+      aviso.className = 'text-[11px] text-emerald-400';
+      aviso.textContent = `Guardado. Tus macros suman unas ${kcalMacros} kcal.`;
+      render();
+    }
+
+    function restablecerObjetivos() {
+      TARGETS = { ...TARGETS_POR_DEFECTO };
+      try { localStorage.removeItem('ft4_targets'); } catch (e) { /* nada */ }
+      rellenarFormularioObjetivos();
+      document.getElementById('aviso-objetivos').textContent = 'Objetivos originales restablecidos.';
+      document.getElementById('aviso-objetivos').className = 'text-[11px] text-slate-400';
+      render();
+    }
+
+    // ---------- MIS ALIMENTOS ----------
+    // Los alimentos que creas tú se guardan aparte, en 'ft4_customFoods'.
+    // Cada uno tiene: id, name, kcal, p, c, f (todo por 100 g).
+    let customFoods = leerGuardado('ft4_customFoods');
+
+    function saveCustomFoods() {
+      guardar('ft4_customFoods', customFoods);
+    }
+
+    // Une los alimentos de base y los tuyos en una sola lista.
+    // Los tuyos llevan delante "mio_" para que nunca choquen con los de base.
+    function todosLosAlimentos() {
+      const todos = { ...FOOD_DB };
+      customFoods.forEach(item => { todos['mio_' + item.id] = item; });
+      return todos;
+    }
+
+    // Como el nombre lo escribes tú, lo "limpiamos" antes de meterlo en la página.
+    // Así, si escribes algo como <b>, se ve tal cual y no rompe nada.
+    function escaparHTML(texto) {
+      return String(texto).replace(/[&<>"']/g, ch =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    // Vuelve a crear las opciones del desplegable de alimentos.
+    function rellenarSelectorAlimentos(seleccionar) {
+      const select = document.getElementById('alimento-select');
+      const elegido = seleccionar || select.value;
+
+      const opcionesBase = Object.entries(FOOD_DB)
+        .map(([key, item]) => `<option value="${key}">${item.name} (100g)</option>`)
+        .join('');
+      const opcionesMias = customFoods
+        .map(item => `<option value="mio_${item.id}">${escaparHTML(item.name)} (100g)</option>`)
+        .join('');
+
+      select.innerHTML = `<optgroup label="Básicos">${opcionesBase}</optgroup>` +
+        (opcionesMias ? `<optgroup label="Mis alimentos">${opcionesMias}</optgroup>` : '');
+
+      // Si el alimento que tenías elegido sigue existiendo, lo dejamos marcado.
+      if (todosLosAlimentos()[elegido]) select.value = elegido;
+    }
+
+    function addCustomFood() {
+      const aviso = document.getElementById('aviso-alimento');
+      const nombre = document.getElementById('nuevo-nombre').value.trim();
+      const leer = id => parseFloat(document.getElementById(id).value);
+      const kcal = leer('nuevo-kcal'), p = leer('nuevo-p'), c = leer('nuevo-c'), f = leer('nuevo-f');
+
+      // Comprobaciones: nombre obligatorio y números válidos (vacío cuenta como error).
+      if (!nombre) { aviso.textContent = 'Escribe un nombre.'; return; }
+      if ([kcal, p, c, f].some(n => isNaN(n) || n < 0)) {
+        aviso.textContent = 'Rellena kcal, proteínas, carbos y grasas (pon 0 si no tiene).';
+        return;
+      }
+      const existe = Object.values(todosLosAlimentos())
+        .some(item => item.name.toLowerCase() === nombre.toLowerCase());
+      if (existe) { aviso.textContent = 'Ya hay un alimento con ese nombre.'; return; }
+
+      const nuevo = { id: nuevoId(), name: nombre, kcal, p, c, f };
+      // Si vino de un código de barras, lo guardamos para reconocerlo la próxima vez.
+      if (codigoPendiente) nuevo.barcode = codigoPendiente;
+      codigoPendiente = null;
+      quitarFoto(); // la foto ya no hace falta
+      customFoods.push(nuevo);
+      saveCustomFoods();
+
+      // Vaciamos el formulario y dejamos el alimento nuevo ya elegido arriba.
+      ['nuevo-nombre', 'nuevo-kcal', 'nuevo-p', 'nuevo-c', 'nuevo-f']
+        .forEach(id => { document.getElementById(id).value = ''; });
+      aviso.textContent = '';
+      rellenarSelectorAlimentos('mio_' + nuevo.id);
+      render();
+    }
+
+    // =====================================================================
+    // ---------- ESCÁNER REAL (funciona fuera de Claude) ----------
+    // =====================================================================
+
+    // Muestra un mensaje debajo del escáner. tipo: 'info' | 'ok' | 'error'
+    function avisoEscaner(texto, tipo = 'info') {
+      const colores = { info: 'text-slate-400', ok: 'text-emerald-400', error: 'text-rose-400' };
+      const estado = document.getElementById('estado-escaner');
+      estado.className = 'text-[11px] ' + colores[tipo];
+      estado.textContent = texto;
+    }
+
+    // Recordamos el código del último producto encontrado, para guardarlo
+    // junto al alimento. Así, la próxima vez que lo escanees, ya lo tendrás.
+    let codigoPendiente = null;
+
+    // Pone los datos en el formulario "Mis alimentos" y lo abre para que los revises.
+    function rellenarFormularioAlimento({ nombre = '', kcal = '', p = '', c = '', f = '' }) {
+      const num = v => { const n = parseFloat(v); return isNaN(n) || n < 0 ? '' : Math.round(n * 10) / 10; };
+      document.getElementById('nuevo-nombre').value = String(nombre).slice(0, 40);
+      document.getElementById('nuevo-kcal').value = num(kcal);
+      document.getElementById('nuevo-p').value = num(p);
+      document.getElementById('nuevo-c').value = num(c);
+      document.getElementById('nuevo-f').value = num(f);
+      document.getElementById('aviso-alimento').textContent = '';
+      const panel = document.getElementById('panel-alimentos');
+      panel.open = true;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ---------- 1) CÓDIGO DE BARRAS CON LA CÁMARA ----------
+    // Usamos la librería html5-qrcode (cargada arriba, en <head>). Si el navegador
+    // tiene un lector de códigos propio (BarcodeDetector), la librería lo aprovecha.
+    let lectorCodigo = null;
+
+    async function abrirEscanerCodigo() {
+      // La cámara solo se permite en páginas seguras (https:// o localhost).
+      if (!window.isSecureContext) {
+        avisoEscaner('La cámara solo funciona si abres la app desde un enlace https:// (no con doble clic en el archivo). Mientras tanto, escribe el número del código abajo y pulsa Buscar.', 'error');
+        return;
+      }
+      if (!window.Html5Qrcode) {
+        avisoEscaner('No se pudo cargar el lector de códigos (¿sin internet?). Escribe el número del código abajo y pulsa Buscar.', 'error');
+        return;
+      }
+      if (lectorCodigo) return; // ya está abierto
+
+      document.getElementById('zona-camara').classList.remove('hidden');
+      avisoEscaner('Pidiendo permiso para usar la cámara… Si el navegador pregunta, pulsa "Permitir".');
+
+      const F = window.Html5QrcodeSupportedFormats;
+      const opciones = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+      if (F) opciones.formatsToSupport = [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E];
+
+      lectorCodigo = new Html5Qrcode('lector', opciones);
+      try {
+        await lectorCodigo.start(
+          { facingMode: 'environment' },          // cámara trasera
+          { fps: 10, qrbox: { width: 260, height: 120 } },
+          async codigo => {                        // se llama al detectar un código
+            await cerrarEscanerCodigo();
+            if (navigator.vibrate) navigator.vibrate(80);
+            document.getElementById('codigo-input').value = codigo;
+            buscarCodigo(codigo);
+          },
+          () => { /* aún no ve ningún código: no hacemos nada */ }
+        );
+        avisoEscaner('Apunta al código de barras y mantenlo dentro del recuadro.');
+      } catch (e) {
+        const txt = String(e && (e.name || e.message || e));
+        await cerrarEscanerCodigo();
+        if (/NotAllowed|Permission/i.test(txt)) {
+          avisoEscaner('No hay permiso para usar la cámara. Actívalo en los ajustes del navegador (icono del candado junto a la dirección) y vuelve a intentarlo.', 'error');
+        } else if (/NotFound|no camera|Requested device not found/i.test(txt)) {
+          avisoEscaner('No se ha encontrado ninguna cámara en este dispositivo. Escribe el número del código abajo.', 'error');
+        } else if (/NotReadable|in use/i.test(txt)) {
+          avisoEscaner('La cámara la está usando otra app. Ciérrala y vuelve a intentarlo.', 'error');
+        } else {
+          avisoEscaner('No se pudo abrir la cámara. Escribe el número del código abajo y pulsa Buscar.', 'error');
+        }
+      }
+    }
+
+    async function cerrarEscanerCodigo() {
+      const lector = lectorCodigo;
+      lectorCodigo = null;
+      if (lector) {
+        try { if (lector.isScanning) await lector.stop(); } catch (e) { /* ya estaba parada */ }
+        try { lector.clear(); } catch (e) { /* nada */ }
+      }
+      document.getElementById('zona-camara').classList.add('hidden');
+    }
+
+    // Busca un código de barras: primero entre tus alimentos, luego en Open Food Facts.
+    async function buscarCodigo(texto) {
+      const codigo = String(texto || '').replace(/\D/g, ''); // solo números
+      if (codigo.length < 8) {
+        avisoEscaner('El código debe tener al menos 8 números (los que hay debajo de las barras).', 'error');
+        return;
+      }
+
+      // ¿Ya lo guardaste antes? Entonces lo elegimos directamente.
+      const yaGuardado = customFoods.find(item => item.barcode === codigo);
+      if (yaGuardado) {
+        rellenarSelectorAlimentos('mio_' + yaGuardado.id);
+        document.getElementById('gramos-input').focus();
+        avisoEscaner(`Ya tenías "${yaGuardado.name}" guardado. Está elegido arriba: pon los gramos y pulsa +.`, 'ok');
+        return;
+      }
+
+      avisoEscaner('Buscando el producto en Open Food Facts…');
+      try {
+        const url = `https://world.openfoodfacts.org/api/v2/product/${codigo}.json` +
+          '?fields=product_name,product_name_es,generic_name,brands,nutriments';
+        const respuesta = await fetch(url);
+        const datos = await respuesta.json().catch(() => null);
+
+        if (!datos || datos.status === 0 || !datos.product) {
+          avisoEscaner(`El código ${codigo} no está en Open Food Facts. Prueba a buscarlo por nombre arriba, o haz una foto a la tabla nutricional.`, 'error');
+          document.getElementById('busqueda-input').focus();
+          return;
+        }
+
+        codigoPendiente = codigo;
+        const datosProd = datosDeProducto(datos.product);
+        rellenarFormularioAlimento(datosProd);
+        if (datosProd.faltan) {
+          avisoEscaner('Producto encontrado, pero le faltan algunos valores nutricionales. Complétalos con la etiqueta (o con el botón 📷) antes de guardar.', 'error');
+        } else {
+          avisoEscaner('¡Producto encontrado! Revisa los datos por 100 g y pulsa "Guardar alimento".', 'ok');
+        }
+      } catch (e) {
+        avisoEscaner('No se pudo conectar con Open Food Facts. Comprueba tu conexión a internet e inténtalo de nuevo.', 'error');
+      }
+    }
+
+    // Convierte un producto de Open Food Facts en { nombre, kcal, p, c, f, faltan }.
+    // Lo usan tanto el código de barras como el buscador por nombre.
+    function datosDeProducto(prod) {
+      const n = prod.nutriments || {};
+      const marca = (prod.brands || '').split(',')[0].trim();
+      const nombreBase = prod.product_name_es || prod.product_name || prod.generic_name || 'Producto ' + (prod.code || '');
+      const nombre = marca && !nombreBase.toLowerCase().includes(marca.toLowerCase())
+        ? `${nombreBase} (${marca})` : nombreBase;
+
+      // Open Food Facts guarda la energía en kcal y en kJ; si faltan kcal, convertimos (1 kcal = 4,184 kJ).
+      let kcal = n['energy-kcal_100g'];
+      if (kcal === undefined && n['energy_100g'] !== undefined) kcal = n['energy_100g'] / 4.184;
+
+      const valores = { kcal, p: n['proteins_100g'], c: n['carbohydrates_100g'], f: n['fat_100g'] };
+      const faltan = Object.values(valores).some(v => v === undefined || v === '' || isNaN(parseFloat(v)));
+      return { nombre, ...valores, faltan };
+    }
+
+    // ---------- 1b) BUSCADOR POR NOMBRE EN OPEN FOOD FACTS ----------
+    let resultadosBusqueda = [];   // los productos de la última búsqueda
+    let busquedaEnCurso = null;    // para cancelar una búsqueda si haces otra
+
+    async function buscarPorNombre() {
+      const texto = document.getElementById('busqueda-input').value.trim();
+      const lista = document.getElementById('resultados-busqueda');
+      if (texto.length < 2) {
+        avisoEscaner('Escribe al menos 2 letras del producto (y la marca si la sabes).', 'error');
+        return;
+      }
+
+      if (busquedaEnCurso) busquedaEnCurso.abort();
+      const control = new AbortController();
+      busquedaEnCurso = control;
+      const reloj = setTimeout(() => control.abort(), 15000); // máximo 15 s esperando
+
+      lista.innerHTML = '';
+      avisoEscaner('Buscando en Open Food Facts…');
+      try {
+        const url = 'https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20' +
+          '&fields=code,product_name,product_name_es,generic_name,brands,quantity,nutriments' +
+          '&search_terms=' + encodeURIComponent(texto);
+        const respuesta = await fetch(url, { signal: control.signal });
+        if (!respuesta.ok) throw new Error('http ' + respuesta.status);
+        const datos = await respuesta.json();
+
+        // Nos quedamos con los que tienen nombre, y ponemos primero los que traen todos los valores.
+        resultadosBusqueda = (datos.products || [])
+          .filter(prod => prod.product_name_es || prod.product_name || prod.generic_name)
+          .map(prod => ({ prod, info: datosDeProducto(prod) }))
+          .sort((a, b) => a.info.faltan - b.info.faltan)
+          .slice(0, 10);
+
+        if (!resultadosBusqueda.length) {
+          avisoEscaner(`No he encontrado nada con "${texto}". Prueba con menos palabras o con la marca.`, 'error');
+          return;
+        }
+        mostrarResultados();
+        avisoEscaner('Toca un producto para rellenar sus valores por 100 g.', 'ok');
+      } catch (e) {
+        if (control.signal.aborted && busquedaEnCurso !== control) return; // la sustituyó otra búsqueda
+        avisoEscaner(control.signal.aborted
+          ? 'La búsqueda está tardando demasiado. Inténtalo de nuevo en un momento.'
+          : 'No se pudo conectar con Open Food Facts. Comprueba tu conexión a internet.', 'error');
+      } finally {
+        clearTimeout(reloj);
+        if (busquedaEnCurso === control) busquedaEnCurso = null;
+      }
+    }
+
+    function mostrarResultados() {
+      const v = x => (x === undefined || x === '' || isNaN(parseFloat(x))) ? '–' : Math.round(parseFloat(x) * 10) / 10;
+      document.getElementById('resultados-busqueda').innerHTML = resultadosBusqueda
+        .map(({ prod, info }, i) => `<li>
+          <button onclick="elegirResultado(${i})"
+            class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2">
+            <span class="block text-slate-100">${escaparHTML(info.nombre)}${prod.quantity ? ` <span class="text-slate-500">· ${escaparHTML(prod.quantity)}</span>` : ''}</span>
+            <span class="block text-slate-400">${v(info.kcal)} kcal · P ${v(info.p)} · C ${v(info.c)} · G ${v(info.f)}
+              ${info.faltan ? '<span class="text-amber-400">· faltan datos</span>' : ''}</span>
+          </button>
+        </li>`)
+        .join('');
+    }
+
+    function elegirResultado(i) {
+      const elegido = resultadosBusqueda[i];
+      if (!elegido) return;
+      codigoPendiente = elegido.prod.code ? String(elegido.prod.code) : null;
+      rellenarFormularioAlimento(elegido.info);
+      document.getElementById('resultados-busqueda').innerHTML = '';
+      avisoEscaner(elegido.info.faltan
+        ? 'Le faltan algunos valores: complétalos con la etiqueta antes de guardar.'
+        : 'Listo. Revisa los datos y pulsa "Guardar alimento".', elegido.info.faltan ? 'error' : 'ok');
+    }
+
+    // ---------- 2) FOTO DE LA ETIQUETA + LECTURA DE TEXTO ----------
+    // Prepara la foto para que el lector de texto la entienda mejor:
+    //  1) la deja de un tamaño cómodo (ni enorme ni diminuta),
+    //  2) la pasa a blanco y negro (escala de grises),
+    //  3) estira el contraste: lo oscuro más oscuro y lo claro más claro.
+    function prepararFotoParaOCR(archivo, ladoObjetivo = 1800) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const escala = Math.min(2, ladoObjetivo / Math.max(img.width, img.height));
+          const lienzo = document.createElement('canvas');
+          lienzo.width = Math.round(img.width * escala);
+          lienzo.height = Math.round(img.height * escala);
+          const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+          URL.revokeObjectURL(img.src);
+
+          const imagen = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+          const px = imagen.data;
+
+          // Paso 2: escala de grises (y contamos cuántos píxeles hay de cada tono).
+          const histograma = new Array(256).fill(0);
+          for (let i = 0; i < px.length; i += 4) {
+            const gris = Math.round(0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]);
+            px[i] = px[i + 1] = px[i + 2] = gris;
+            histograma[gris]++;
+          }
+
+          // Paso 3: buscamos el tono "casi más oscuro" y "casi más claro" (ignorando el 1 % extremo)
+          // y estiramos todo entre esos dos, con un pelín de contraste extra.
+          const total = px.length / 4;
+          let acumulado = 0, bajo = 0, alto = 255;
+          for (let t = 0; t < 256; t++) { acumulado += histograma[t]; if (acumulado >= total * 0.01) { bajo = t; break; } }
+          acumulado = 0;
+          for (let t = 255; t >= 0; t--) { acumulado += histograma[t]; if (acumulado >= total * 0.01) { alto = t; break; } }
+          // Si la foto es muy uniforme (casi todo fondo), no estiramos tanto para no "quemarla".
+          if (alto - bajo < 80) { bajo = Math.max(0, bajo - 40); alto = Math.min(255, alto + 40); }
+          const rango = Math.max(1, alto - bajo);
+          for (let i = 0; i < px.length; i += 4) {
+            let v = (px[i] - bajo) * 255 / rango;      // estirar
+            v = (v - 128) * 1.25 + 128;                // contraste extra
+            v = Math.max(0, Math.min(255, v));
+            px[i] = px[i + 1] = px[i + 2] = v;
+          }
+          ctx.putImageData(imagen, 0, 0);
+          lienzo.toBlob(b => b ? resolve(b) : reject(new Error('foto')), 'image/png');
+        };
+        img.onerror = () => reject(new Error('No se pudo abrir la foto.'));
+        img.src = URL.createObjectURL(archivo);
+      });
+    }
+
+    function quitarFoto() {
+      const vista = document.getElementById('vista-previa');
+      if (vista.src) URL.revokeObjectURL(vista.src);
+      vista.removeAttribute('src');
+      document.getElementById('caja-foto').classList.add('hidden');
+    }
+
+    // Tesseract.js pesa bastante, así que solo lo descargamos la primera vez que lo usas.
+    let promesaTesseract = null;
+    function cargarTesseract() {
+      if (window.Tesseract) return Promise.resolve(window.Tesseract);
+      if (!promesaTesseract) {
+        promesaTesseract = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+          s.onload = () => resolve(window.Tesseract);
+          s.onerror = () => { promesaTesseract = null; reject(new Error('sin tesseract')); };
+          document.head.appendChild(s);
+        });
+      }
+      return promesaTesseract;
+    }
+
+    // Busca en el texto leído los valores de la tabla nutricional.
+    // Se queda con el PRIMER número de cada fila, que en casi todas las etiquetas
+    // es la columna "por 100 g".
+    function interpretarEtiqueta(texto) {
+      const limpio = texto
+        .toLowerCase()
+        .replace(/(\d),(\d)/g, '$1.$2')   // 9,5 -> 9.5
+        .replace(/[|]/g, ' ');
+      const lineas = limpio.split('\n');
+
+      function valorDe(claves, excluir) {
+        for (const linea of lineas) {
+          const m = linea.match(claves);
+          if (!m) continue;
+          if (excluir && excluir.test(linea)) continue;
+          const resto = linea.slice(m.index + m[0].length);
+          const n = resto.match(/(\d+(?:\.\d+)?)/);
+          if (n) return parseFloat(n[1]);
+        }
+        return '';
+      }
+
+      // Energía: buscamos "123 kcal"; si no aparece, "456 kJ" y lo convertimos.
+      let kcal = '';
+      const mKcal = limpio.match(/(\d+(?:\.\d+)?)\s*k\s?cal/);
+      if (mKcal) kcal = parseFloat(mKcal[1]);
+      else {
+        const mKj = limpio.match(/(\d+(?:\.\d+)?)\s*kj/);
+        if (mKj) kcal = Math.round(parseFloat(mKj[1]) / 4.184);
+      }
+
+      return {
+        kcal,
+        f: valorDe(/grasas?|l[ií]pidos|fat/, /saturad|satur|trans|mono|poli/),
+        c: valorDe(/hidratos de carbono|carbohidratos|hidratos|carbohydrate/, /az[uú]car|sugar/),
+        p: valorDe(/prote[ií]nas?|protein/)
+      };
+    }
+
+    async function leerFotoEtiqueta(input) {
+      const archivo = input.files && input.files[0];
+      input.value = ''; // permite volver a elegir la misma foto
+      if (!archivo) return;
+
+      // Vista previa de la foto, dentro de "Mis alimentos", justo encima de los números.
+      // Se queda visible hasta que guardes el alimento o pulses "Quitar foto".
+      quitarFoto();
+      document.getElementById('vista-previa').src = URL.createObjectURL(archivo);
+      document.getElementById('caja-foto').classList.remove('hidden');
+      const panel = document.getElementById('panel-alimentos');
+      panel.open = true;
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      avisoEscaner('Preparando el lector de texto… (la primera vez tarda un poco más)');
+      try {
+        const Tesseract = await cargarTesseract();
+        const foto = await prepararFotoParaOCR(archivo);   // gris + contraste
+        const worker = await Tesseract.createWorker('spa', 1, {
+          logger: m => {
+            if (m.status === 'recognizing text') avisoEscaner(`Leyendo la etiqueta… ${Math.round(m.progress * 100)} %`);
+          }
+        });
+        const { data } = await worker.recognize(foto);
+        await worker.terminate();
+
+        const valores = interpretarEtiqueta(data.text || '');
+        const encontrados = ['kcal', 'p', 'c', 'f'].filter(k => valores[k] !== '').length;
+
+        // Mantenemos el nombre si ya habías escrito uno.
+        const nombreActual = document.getElementById('nuevo-nombre').value;
+        rellenarFormularioAlimento({ nombre: nombreActual, ...valores });
+
+        if (encontrados === 0) {
+          avisoEscaner('No he podido leer los valores. ¿Es una tabla nutricional impresa? Prueba recta, cerca y con buena luz, o escríbelos mirando la foto.', 'error');
+        } else if (encontrados < 4) {
+          avisoEscaner(`He leído ${encontrados} de 4 valores. Completa los que faltan mirando la foto y revisa todos antes de guardar.`, 'error');
+        } else {
+          avisoEscaner('Valores leídos. Comprueba con la foto que son los de "por 100 g", escribe el nombre y pulsa "Guardar alimento".', 'ok');
+        }
+        if (!nombreActual) document.getElementById('nuevo-nombre').focus();
+      } catch (e) {
+        avisoEscaner('No se pudo leer la foto automáticamente (¿sin internet?). Tienes la foto en "Mis alimentos": copia los valores a mano.', 'error');
+      }
+    }
+
+    // Borrar un alimento tuyo NO borra las comidas que ya apuntaste con él:
+    // esas guardaron sus propias kcal y macros cuando las añadiste.
+    async function borrarAlimentoPropio(id) {
+      if (!await confirmar('¿Borrar este alimento de tu lista? Las comidas ya apuntadas no se borran.')) return;
+      customFoods = customFoods.filter(item => item.id !== id);
+      saveCustomFoods();
+      render();
+    }
+
+    // Devuelve el historial de UN ejercicio, del más reciente al más antiguo.
+    function historialDe(exKey) {
+      return state.workouts
+        .filter(w => w.exKey === exKey)
+        .sort((a, b) => b.date.localeCompare(a.date) || (b.createdAt || 0) - (a.createdAt || 0));
+    }
+
+    // Se ejecuta cada vez que eliges otro ejercicio.
+    // MEJORADO: ahora siempre vacía el campo de carga (para no arrastrar kilos de
+    // una barra a un lastre) y, si ya tienes historial, propone la carga que toca hoy.
+    function actualizarFormularioEjercicio() {
+      const exKey = document.getElementById('ejercicio-select').value;
+      const ex = EXERCISE_DB[exKey];
+      const campoCarga = document.getElementById('campo-carga');
+      const labelCarga = document.getElementById('label-carga');
+      const pesoInput = document.getElementById('peso-input');
+      const seriesInput = document.getElementById('series-input');
+      const info = document.getElementById('info-modalidad');
+      const ultimo = historialDe(exKey)[0];
+
+      // Paso 1: dejamos el formulario limpio.
+      pesoInput.value = '';
+      seriesInput.value = '';
+      document.getElementById('reps-input').value = '';
+
+      // Paso 2: adaptamos el campo de carga a la modalidad.
+      if (ex.modality === 'calistenia') {
+        campoCarga.classList.add('opacity-40');
+        pesoInput.disabled = true;
+        labelCarga.textContent = 'Sin carga';
+        pesoInput.placeholder = '—';
+        info.textContent = `Calistenia sin lastre · Rango objetivo: ${ex.minReps}–${ex.maxReps} reps. Progresa subiendo reps o variante.`;
+      } else if (ex.modality === 'lastrada') {
+        campoCarga.classList.remove('opacity-40');
+        pesoInput.disabled = false;
+        labelCarga.textContent = 'Lastre (+kg)';
+        pesoInput.placeholder = '5';
+        info.textContent = `Calistenia lastrada · Rango objetivo: ${ex.minReps}–${ex.maxReps} reps. Al llegar al tope, sube +${ex.stepKg} kg de lastre. Apunta solo el peso que cuelgas, no tu peso corporal.`;
+      } else {
+        campoCarga.classList.remove('opacity-40');
+        pesoInput.disabled = false;
+        labelCarga.textContent = 'Peso (kg)';
+        pesoInput.placeholder = '20';
+        info.textContent = `Fuerza con pesas · Rango objetivo: ${ex.minReps}–${ex.maxReps} reps. Al llegar al tope, sube +${ex.stepKg} kg.`;
+      }
+
+      // Paso 3: si ya hiciste este ejercicio, rellenamos lo que toca hoy.
+      if (ultimo) {
+        seriesInput.value = ultimo.sets;
+        if (ex.modality !== 'calistenia' && ultimo.weight !== null && !isNaN(ultimo.weight)) {
+          const subir = ultimo.reps >= ex.maxReps;
+          pesoInput.value = subir ? +(ultimo.weight + ex.stepKg).toFixed(2) : ultimo.weight;
+        }
+      }
+      mostrarUltimoRegistro();
+    }
+
+    // NUEVO: debajo del selector te recuerda lo que hiciste la última vez y qué toca hoy.
+    function mostrarUltimoRegistro() {
+      const exKey = document.getElementById('ejercicio-select').value;
+      const ex = EXERCISE_DB[exKey];
+      const ultimo = historialDe(exKey)[0];
+      const caja = document.getElementById('ultimo-registro');
+
+      if (!ultimo) {
+        caja.innerHTML = `<p class="text-slate-500">Aún no hay registros de este ejercicio.</p>`;
+        return;
+      }
+      const prog = calcularProgresion(ex, ultimo);
+      caja.innerHTML = `<div class="bg-slate-800/60 rounded-xl px-3 py-2">
+        <p class="text-slate-400">Última vez (${fechaBonita(ultimo.date)}): ${detalleEntreno(ex, ultimo)}</p>
+        <p class="text-emerald-400 font-semibold">${prog.badge}</p>
+      </div>`;
+    }
+
+    function calcularProgresion(ex, { weight, reps, sets }) {
+      if (ex.modality === 'pesas' || ex.modality === 'lastrada') {
+        const cargaActual = (weight === null || isNaN(weight)) ? 0 : weight;
+        const etiquetaCarga = ex.modality === 'lastrada' ? `+${cargaActual} kg lastre` : `${cargaActual} kg`;
+
+        if (reps >= ex.maxReps) {
+          const nextKg = +(cargaActual + ex.stepKg).toFixed(2);
+          const etiquetaNext = ex.modality === 'lastrada' ? `+${nextKg} kg de lastre` : `${nextKg} kg`;
+          return {
+            badge: ex.modality === 'lastrada' ? `Próx: +${nextKg} kg` : `Próx: ${nextKg} kg`,
+            tip: `Tope de ${ex.maxReps} reps alcanzado (${etiquetaCarga}). Sube a ${etiquetaNext} y apunta a ${ex.minReps} reps.`
+          };
+        }
+        if (reps >= ex.minReps) {
+          return {
+            badge: `Mantener ${etiquetaCarga}`,
+            tip: `Dentro del rango (${ex.minReps}–${ex.maxReps}). Mantén ${etiquetaCarga} y busca ${reps + 1}–${ex.maxReps} reps.`
+          };
+        }
+        return {
+          badge: `Consolidar ${etiquetaCarga}`,
+          tip: `Sigue con ${etiquetaCarga} hasta alcanzar al menos ${ex.minReps} reps con buena técnica.`
+        };
+      }
+
+      // Calistenia estándar sin lastre
+      if (reps >= ex.maxReps) {
+        return {
+          badge: `Subir nivel / reps`,
+          tip: `Dominaste ${reps} reps. Sube a ${sets + 1} series o prueba: ${ex.nextVariant}.`
+        };
+      }
+      if (reps >= ex.minReps) {
+        return {
+          badge: `Meta: ${Math.min(reps + 1, ex.maxReps)}–${ex.maxReps} reps`,
+          tip: `Sin lastre: suma +1 o +2 reps manteniendo ejecución limpia.`
+        };
+      }
+      return {
+        badge: `Objetivo: ${ex.minReps} reps`,
+        tip: `Construye base hasta llegar al menos a ${ex.minReps} reps.`
+      };
+    }
+
+    function detalleEntreno(ex, w) {
+      if (ex.modality === 'pesas') return `${w.sets}x${w.reps} con ${w.weight} kg`;
+      if (ex.modality === 'lastrada') return `${w.sets}x${w.reps} con +${w.weight} kg`;
+      return `${w.sets}x${w.reps} reps`;
+    }
+
+    function addFood() {
+      const key = document.getElementById('alimento-select').value;
+      const grams = parseFloat(document.getElementById('gramos-input').value);
+      if (!grams || grams <= 0) return;
+
+      const base = todosLosAlimentos()[key];   // busca en los de base y en los tuyos
+      if (!base) return;
+      const factor = grams / 100;
+
+      state.foods.push({
+        id: nuevoId(),
+        date: fechaSeleccionada(),   // NUEVO: la comida se guarda con su día
+        name: base.name,
+        grams,
+        kcal: Math.round(base.kcal * factor),
+        p: +(base.p * factor).toFixed(1),
+        c: +(base.c * factor).toFixed(1),
+        f: +(base.f * factor).toFixed(1)
+      });
+
+      document.getElementById('gramos-input').value = '';
+      saveState();
+      render();
+    }
+
+    function addWorkout() {
+      const exKey = document.getElementById('ejercicio-select').value;
+      const ex = EXERCISE_DB[exKey];
+      const weight = parseFloat(document.getElementById('peso-input').value);
+      const sets = parseInt(document.getElementById('series-input').value, 10);
+      const reps = parseInt(document.getElementById('reps-input').value, 10);
+
+      const aviso = document.getElementById('aviso-entreno');
+
+      // MEJORADO: si falta algún dato, ahora te lo dice en vez de no hacer nada.
+      if (!sets || !reps) {
+        aviso.className = 'text-[11px] text-rose-400';
+        aviso.textContent = 'Rellena las series y las reps.';
+        return;
+      }
+      if ((ex.modality === 'pesas' || ex.modality === 'lastrada') && isNaN(weight)) {
+        aviso.className = 'text-[11px] text-rose-400';
+        aviso.textContent = ex.modality === 'lastrada' ? 'Pon el lastre (0 si vas sin lastre).' : 'Pon el peso en kg.';
+        return;
+      }
+
+      // NUEVO: en vez de sustituir el registro anterior, AÑADIMOS uno nuevo.
+      // Así se va formando el historial.
+      state.workouts.push({
+        id: nuevoId(),
+        exKey,
+        date: fechaSeleccionada(),
+        createdAt: Date.now(),
+        weight: ex.modality === 'calistenia' ? null : weight,
+        sets,
+        reps
+      });
+
+      saveState();
+      render();
+
+      // MEJORADO: el formulario se prepara para la SIGUIENTE sesión con la
+      // recomendación nueva (por ejemplo, +2.5 kg si llegaste al tope de reps).
+      actualizarFormularioEjercicio();
+      const prog = calcularProgresion(ex, { weight, reps, sets });
+      aviso.className = 'text-[11px] text-emerald-400';
+      aviso.textContent = `Guardado ✓ · ${prog.badge}`;
+    }
+
+    // NUEVO: borrar una comida o un entreno (pide confirmación antes).
+    async function borrarComida(id) {
+      if (!await confirmar('¿Borrar esta comida?')) return;
+      state.foods = state.foods.filter(item => item.id !== id);
+      saveState();
+      render();
+    }
+
+    async function borrarEntreno(id) {
+      if (!await confirmar('¿Borrar este registro de entreno?')) return;
+      const borrado = state.workouts.find(w => w.id === id);
+      state.workouts = state.workouts.filter(w => w.id !== id);
+      saveState();
+      render();
+
+      // MEJORADO: si el registro borrado es del ejercicio que tienes elegido arriba,
+      // recalculamos el formulario. Así, si borras el último, la sugerencia vuelve a
+      // salir del registro anterior (o se queda vacío si ya no queda ninguno).
+      const seleccionado = document.getElementById('ejercicio-select').value;
+      if (borrado && borrado.exKey === seleccionado) {
+        actualizarFormularioEjercicio();
+        document.getElementById('aviso-entreno').textContent = '';
+      }
+    }
+
+    // Dibuja una barra de progreso: "Proteínas 80 / 160 g" con barra al 50 %.
+    function barra(nombre, valor, objetivo, unidad, color) {
+      const pct = Math.min(100, Math.round((valor / objetivo) * 100));
+      const valorTexto = unidad === 'kcal' ? Math.round(valor) : valor.toFixed(1);
+      return `<div>
+        <div class="flex justify-between text-[11px] text-slate-400">
+          <span>${nombre}</span><span>${valorTexto} / ${objetivo} ${unidad}</span>
+        </div>
+        <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div class="h-full ${color}" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+    }
+
+    function render() {
+      const fecha = fechaSeleccionada();
+      const esHoy = fecha === hoy();
+
+      // ---- NUTRICIÓN: solo las comidas del día elegido ----
+      const comidasDelDia = state.foods.filter(item => item.date === fecha);
+
+      const totals = comidasDelDia.reduce(
+        (acc, item) => ({
+          kcal: acc.kcal + item.kcal,
+          p: acc.p + item.p,
+          c: acc.c + item.c,
+          f: acc.f + item.f
+        }),
+        { kcal: 0, p: 0, c: 0, f: 0 }
+      );
+
+      document.getElementById('titulo-nutricion').textContent =
+        `1. Nutrición y Macros (${esHoy ? 'hoy' : fechaBonita(fecha)})`;
+      document.getElementById('resumen-kcal').textContent = `${totals.kcal} / ${TARGETS.kcal} kcal`;
+      document.getElementById('barras-macros').innerHTML =
+        barra('Calorías', totals.kcal, TARGETS.kcal, 'kcal', 'bg-sky-400') +
+        barra('Proteínas', totals.p, TARGETS.p, 'g', 'bg-rose-400') +
+        barra('Carbos', totals.c, TARGETS.c, 'g', 'bg-amber-400') +
+        barra('Grasas', totals.f, TARGETS.f, 'g', 'bg-violet-400');
+
+      document.getElementById('lista-comidas').innerHTML = comidasDelDia.length
+        ? comidasDelDia
+            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-2 rounded-xl">
+              <span>${escaparHTML(item.name)} (${item.grams}g)</span>
+              <span class="flex items-center gap-3">
+                <span class="font-semibold text-sky-300">${item.kcal} kcal</span>
+                <button onclick="borrarComida('${item.id}')" title="Borrar"
+                  class="text-slate-500 hover:text-rose-400 text-base leading-none">✕</button>
+              </span>
+            </li>`)
+            .join('')
+        : `<li class="text-slate-500">No hay comidas apuntadas este día.</li>`;
+
+      // ---- MIS ALIMENTOS: desplegable y lista con botón de borrar ----
+      rellenarSelectorAlimentos();
+      document.getElementById('lista-mis-alimentos').innerHTML = customFoods.length
+        ? customFoods
+            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-2 rounded-xl">
+              <span>${escaparHTML(item.name)}
+                <span class="text-slate-500">· ${item.kcal} kcal · P ${item.p} · C ${item.c} · G ${item.f}</span>
+              </span>
+              <button onclick="borrarAlimentoPropio('${item.id}')" title="Borrar"
+                class="text-slate-500 hover:text-rose-400 text-base leading-none">✕</button>
+            </li>`)
+            .join('')
+        : `<li class="text-slate-500">Todavía no has creado ningún alimento.</li>`;
+
+      // ---- ENTRENOS: una tarjeta por ejercicio, con su historial ----
+      const ejerciciosConDatos = Object.keys(EXERCISE_DB)
+        .map(exKey => ({ exKey, historial: historialDe(exKey) }))
+        .filter(x => x.historial.length > 0)
+        // El ejercicio entrenado más recientemente aparece primero
+        .sort((a, b) => b.historial[0].date.localeCompare(a.historial[0].date) ||
+                        (b.historial[0].createdAt || 0) - (a.historial[0].createdAt || 0));
+
+      document.getElementById('lista-entrenos').innerHTML = ejerciciosConDatos
+        .map(({ exKey, historial }) => {
+          const ex = EXERCISE_DB[exKey];
+          const ultimo = historial[0];
+          // La recomendación se calcula SIEMPRE a partir del último registro.
+          const prog = calcularProgresion(ex, ultimo);
+          const modalidad = { pesas: 'Pesas', calistenia: 'Calistenia sin lastre', lastrada: 'Calistenia lastrada' }[ex.modality];
+
+          const filas = historial
+            .map(w => `<li class="flex justify-between items-center">
+              <span><span class="text-slate-500">${fechaBonita(w.date)}</span> · ${detalleEntreno(ex, w)}</span>
+              <button onclick="borrarEntreno('${w.id}')" title="Borrar"
+                class="text-slate-500 hover:text-rose-400 text-base leading-none">✕</button>
+            </li>`)
+            .join('');
+
+          return `<div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 text-xs space-y-1">
+            <div class="flex justify-between items-center font-semibold text-sm">
+              <span>${ex.name}</span>
+              <span class="text-emerald-400 text-xs">${prog.badge}</span>
+            </div>
+            <p class="text-slate-400">${modalidad}</p>
+            <p class="text-sky-300">${prog.tip}</p>
+            <details class="pt-1">
+              <summary class="cursor-pointer text-slate-400">Historial (${historial.length})</summary>
+              <ul class="space-y-1 pt-1.5 text-slate-300">${filas}</ul>
+            </details>
+          </div>`;
+        })
+        .join('');
+
+      mostrarUltimoRegistro();
+    }
+
+    document.getElementById('fecha-input').value = hoy();
+    rellenarFormularioObjetivos();
+    actualizarFormularioEjercicio();
+    render();
+
+    // ---------- NUEVO: COPIA DE SEGURIDAD ----------
+    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets'];
+
+    function exportarDatos() {
+      const copia = { app: 'FitTrack', version: 1, fecha: new Date().toISOString(), datos: {} };
+      CLAVES_DATOS.forEach(clave => {
+        try { copia.datos[clave] = JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { /* vacío */ }
+      });
+      const archivo = new Blob([JSON.stringify(copia, null, 2)], { type: 'application/json' });
+      const enlace = document.createElement('a');
+      enlace.href = URL.createObjectURL(archivo);
+      enlace.download = `fittrack-copia-${hoy()}.json`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      setTimeout(() => URL.revokeObjectURL(enlace.href), 1000);
+      const aviso = document.getElementById('aviso-copia');
+      aviso.className = 'text-[11px] text-emerald-400';
+      aviso.textContent = 'Copia descargada. Guárdala en un sitio seguro (Drive, correo…).';
+    }
+
+    async function importarDatos(input) {
+      const archivo = input.files && input.files[0];
+      input.value = '';
+      if (!archivo) return;
+      const aviso = document.getElementById('aviso-copia');
+      try {
+        const copia = JSON.parse(await archivo.text());
+        if (!copia || copia.app !== 'FitTrack' || !copia.datos) throw new Error('no es una copia');
+        if (!await confirmar('¿Sustituir tus datos actuales por los de esta copia?')) return;
+        CLAVES_DATOS.forEach(clave => {
+          const valor = copia.datos[clave];
+          if (valor === null || valor === undefined) localStorage.removeItem(clave);
+          else localStorage.setItem(clave, JSON.stringify(valor));
+        });
+        location.reload(); // recarga la app con los datos recuperados
+      } catch (e) {
+        aviso.className = 'text-[11px] text-rose-400';
+        aviso.textContent = 'Ese archivo no es una copia de FitTrack válida.';
+      }
+    }
+
+    // ---------- NUEVO: MODO APP ----------
+    // Pide al navegador que no borre nuestros datos para liberar espacio.
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
+    // Registra el "service worker" (sw.js): permite instalar la app y usarla sin internet.
+    // Solo funciona en https:// (o localhost), así que con doble clic simplemente se salta.
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
