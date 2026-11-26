@@ -829,7 +829,7 @@
           return;
         }
 
-        avisoEscaner('📷 Escaneando en directo… apunta recto al código, en horizontal, a unos 15–20 cm.');
+        avisoEscaner('📷 Escaneando en directo… apunta recto al código, en horizontal, a unos 15–25 cm, y mantén el móvil quieto un segundo.');
         clearTimeout(consejoCamara);
         consejoCamara = setTimeout(() => {
           if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. O pulsa «⦿ Capturar» para analizar la imagen a máxima calidad.');
@@ -856,7 +856,8 @@
         pistas = new Map();
         pistas.set(L.DecodeHintType.POSSIBLE_FORMATS, [B.EAN_13, B.EAN_8, B.UPC_A, B.CODE_128]);
       }
-      const lector = new ZX.BrowserMultiFormatReader(pistas);
+      // Un intento cada 100 ms (por defecto ZXing espera 500 ms entre intentos y por eso tardaba).
+      const lector = new ZX.BrowserMultiFormatReader(pistas, { delayBetweenScanAttempts: 100 });
       const alResultado = resultado => { if (resultado && resultado.getText()) alLeerCodigo(resultado.getText()); };
 
       // Cámara trasera en HD (1280×720). Si el móvil no la acepta, lo intentamos sin pedir resolución.
@@ -882,6 +883,53 @@
       // Bucle ligero con el lector nativo del navegador (BarcodeDetector) cada 200 ms.
       // Lo que lea antes, ZXing o el nativo, gana.
       iniciarDetectorNativo(video);
+
+      // Un poco de zoom (×1,5) si la cámara lo permite: el código se ve grande sin acercar tanto el móvil.
+      aplicarZoom(video, 1.5);
+      // Mira también la zona central ampliada: lee códigos pequeños o algo lejanos sin moverte.
+      iniciarRecorteCentral(video, pistas);
+    }
+
+    // ---- Zona central ampliada (ligero, sin TRY_HARDER) ----
+    // Cada 250 ms recorta el centro del vídeo, lo amplía y lo pasa por ZXing.
+    // Alterna un recorte amplio y otro más cerrado, para que valga tanto de cerca como algo de lejos.
+    let bucleRecorte = null;
+    function iniciarRecorteCentral(video, pistas) {
+      pararRecorteCentral();
+      const L = window.ZXing;
+      if (!L || !L.MultiFormatReader || !L.HTMLCanvasElementLuminanceSource || !L.HybridBinarizer || !L.BinaryBitmap) return;
+      const lectorRecorte = new L.MultiFormatReader();
+      if (pistas) lectorRecorte.setHints(pistas);
+      const lienzo = document.createElement('canvas');
+      const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+      const zonas = [[0.85, 0.40], [0.60, 0.25]];   // [ancho, alto] respecto al vídeo
+      let turno = 0;
+
+      const mirar = () => {
+        if (!controlesZXing || yaLeido) return;
+        try {
+          if (video.readyState >= 2 && video.videoWidth) {
+            const [fa, fh] = zonas[turno++ % zonas.length];
+            const vw = video.videoWidth, vh = video.videoHeight;
+            const sw = Math.round(vw * fa), sh = Math.round(vh * fh);
+            const sx = Math.round((vw - sw) / 2), sy = Math.round((vh - sh) / 2);
+            const escala = Math.min(2.5, Math.max(1, 1100 / sw));
+            lienzo.width = Math.round(sw * escala);
+            lienzo.height = Math.round(sh * escala);
+            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, lienzo.width, lienzo.height);
+            const bitmap = new L.BinaryBitmap(new L.HybridBinarizer(new L.HTMLCanvasElementLuminanceSource(lienzo)));
+            const resultado = lectorRecorte.decode(bitmap);
+            if (resultado && resultado.getText()) { alLeerCodigo(resultado.getText()); return; }
+          }
+        } catch (_) { /* aún no lo ve: seguimos */ }
+        bucleRecorte = setTimeout(mirar, 250);
+      };
+      bucleRecorte = setTimeout(mirar, 300);
+    }
+
+    function pararRecorteCentral() {
+      clearTimeout(bucleRecorte);
+      bucleRecorte = null;
     }
 
     // ---- Zoom de la cámara: acerca la imagen para que las barras se vean más grandes ----
@@ -1066,6 +1114,7 @@
       clearTimeout(consejoCamara);
       pararDetectorNativo();
       pararAnalisisFotogramas();
+      pararRecorteCentral();
       // Parar ZXing (y apagar la cámara)
       const controles = controlesZXing;
       controlesZXing = null;
