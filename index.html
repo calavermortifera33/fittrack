@@ -18,6 +18,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Librería para leer códigos de barras con la cámara -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- NUEVO: el visor de la cámara no reacciona a toques ni deslizamientos del dedo
+       (ni zoom, ni selección de texto, ni menú de "guardar imagen"). -->
+  <style>
+    #lector, #lector * {
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen max-w-md mx-auto p-4" style="padding-top:max(1rem, env(safe-area-inset-top)); padding-bottom:max(1rem, env(safe-area-inset-bottom));">
   <header class="mb-4">
@@ -722,6 +733,7 @@
     // Usamos la librería html5-qrcode (cargada arriba, en <head>). Si el navegador
     // tiene un lector de códigos propio (BarcodeDetector), la librería lo aprovecha.
     let lectorCodigo = null;
+    let consejoCamara = null;   // temporizador del consejo "¿No lo lee?"
 
     async function abrirEscanerCodigo() {
       // La cámara solo se permite en páginas seguras (https:// o localhost).
@@ -740,16 +752,26 @@
 
       const F = window.Html5QrcodeSupportedFormats;
       const opciones = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
-      if (F) opciones.formatsToSupport = [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E];
+      // Formatos que puede leer: los de supermercado (EAN/UPC) y otros habituales
+      // (CODE_128, CODE_39, ITF, CODABAR). Si la librería no trae la lista, lee todos.
+      if (F) {
+        opciones.formatsToSupport = ['EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'CODE_128', 'CODE_39', 'ITF', 'CODABAR']
+          .map(nombre => F[nombre])
+          .filter(valor => valor !== undefined);
+      }
 
       lectorCodigo = new Html5Qrcode('lector', opciones);
 
-      // Recuadro de lectura dinámico: ~85 % del ancho real del visor y 150–170 px de alto.
-      // Los códigos de barras son anchos y bajitos, así que un recuadro así los "caza" mejor.
+      // Recuadro de lectura amplio y flexible para códigos horizontales:
+      // ~92 % del ancho real del visor y algo más de la mitad del alto (entre 150 y 260 px).
+      // Así el código no tiene que estar perfectamente centrado para que se lea.
       const recuadro = (anchoVisor, altoVisor) => {
-        const ancho = Math.max(200, Math.floor(anchoVisor * 0.85));
-        const alto = Math.min(170, Math.max(150, Math.floor(altoVisor * 0.45)), altoVisor - 20);
-        return { width: Math.min(ancho, anchoVisor - 10), height: Math.max(80, alto) };
+        const ancho = Math.floor(anchoVisor * 0.92);
+        const alto = Math.min(260, Math.max(150, Math.floor(altoVisor * 0.55)));
+        return {
+          width: Math.max(150, Math.min(ancho, anchoVisor - 4)),
+          height: Math.max(80, Math.min(alto, altoVisor - 4))
+        };
       };
 
       // Lo que pedimos a la cámara: la trasera, buena resolución (1280×720) y enfoque continuo
@@ -760,9 +782,13 @@
         height: { ideal: 720 },
         advanced: [{ focusMode: 'continuous' }]
       };
-      const configuracion = videoConstraints => ({ fps: 12, qrbox: recuadro, videoConstraints });
+      // fps: 15 = intenta leer 15 veces por segundo. disableFlip: no hace falta mirar la imagen en espejo.
+      const configuracion = videoConstraints => ({ fps: 15, qrbox: recuadro, disableFlip: true, videoConstraints });
 
+      let yaLeido = false;                       // evita leer el mismo código dos veces seguidas
       const alLeer = async codigo => {           // se llama al detectar un código
+        if (yaLeido) return;
+        yaLeido = true;
         await cerrarEscanerCodigo();
         if (navigator.vibrate) navigator.vibrate(80);
         document.getElementById('codigo-input').value = codigo;
@@ -777,7 +803,7 @@
           // Si falló por permisos, no insistimos. Si fue por la configuración, probamos la básica.
           if (/NotAllowed|Permission/i.test(String(e && (e.name || e.message || e)))) throw e;
           try { if (lectorCodigo.isScanning) await lectorCodigo.stop(); } catch (_) { /* nada */ }
-          await lectorCodigo.start({ facingMode: 'environment' }, { fps: 12, qrbox: recuadro }, alLeer, sinCodigo);
+          await lectorCodigo.start({ facingMode: 'environment' }, { fps: 15, qrbox: recuadro, disableFlip: true }, alLeer, sinCodigo);
         }
 
         // Por si el navegador ignoró el enfoque continuo al arrancar, lo pedimos otra vez (si lo admite).
@@ -788,7 +814,21 @@
           }
         } catch (_) { /* este móvil no permite cambiar el enfoque: no pasa nada */ }
 
-        avisoEscaner('Apunta al código de barras y mantenlo dentro del recuadro, a unos 10–15 cm.');
+        avisoEscaner('Apunta al código de barras en horizontal, dentro del recuadro, a unos 10–15 cm.');
+
+        // Si en 10 segundos no lo ha leído, damos un consejo (sin cerrar la cámara).
+        clearTimeout(consejoCamara);
+        consejoCamara = setTimeout(() => {
+          if (lectorCodigo) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. También puedes escribir el número abajo.');
+        }, 10000);
+
+        // Bloquea gestos del dedo sobre el visor (deslizar, pellizcar, doble toque).
+        const visor = document.getElementById('lector');
+        if (!visor.dataset.sinGestos) {
+          ['touchstart', 'touchmove', 'gesturestart', 'dblclick', 'contextmenu'].forEach(evento =>
+            visor.addEventListener(evento, ev => { if (ev.cancelable) ev.preventDefault(); }, { passive: false }));
+          visor.dataset.sinGestos = '1';
+        }
       } catch (e) {
         const txt = String(e && (e.name || e.message || e));
         await cerrarEscanerCodigo();
@@ -805,6 +845,7 @@
     }
 
     async function cerrarEscanerCodigo() {
+      clearTimeout(consejoCamara);
       const lector = lectorCodigo;
       lectorCodigo = null;
       if (lector) {
