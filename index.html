@@ -122,10 +122,19 @@
       </div>
       <p class="text-[11px] text-slate-500">La foto es solo para la <b>tabla nutricional impresa</b> de un envase, no para platos ni alimentos sueltos.</p>
 
+      <!-- NUEVO: foto fija del código de barras (por si en directo no lo lee). Un solo selector de archivo, dos botones. -->
+      <input id="foto-codigo-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoCodigo(this)" />
+      <label for="foto-codigo-input" class="block text-center text-[12px] text-sky-300 underline cursor-pointer">
+        ¿No lo lee en directo? 📸 Haz una foto al código de barras
+      </label>
+
       <!-- Aquí aparece la imagen de la cámara mientras escaneas -->
       <div id="zona-camara" class="hidden space-y-2">
         <div id="lector" class="rounded-xl overflow-hidden bg-black w-full" style="min-height: 300px;"></div>
-        <button onclick="cerrarEscanerCodigo()" class="w-full bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm">Cerrar cámara</button>
+        <div class="grid grid-cols-2 gap-2">
+          <label for="foto-codigo-input" class="text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm cursor-pointer">📸 Foto al código</label>
+          <button onclick="cerrarEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm">Cerrar cámara</button>
+        </div>
       </div>
 
       <!-- Si la cámara no va, puedes escribir el número que hay debajo de las barras -->
@@ -818,7 +827,7 @@
         avisoEscaner('Apunta al código de barras en horizontal, a unos 10–15 cm.');
         clearTimeout(consejoCamara);
         consejoCamara = setTimeout(() => {
-          if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. También puedes escribir el número abajo.');
+          if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. O pulsa «📸 Foto al código».');
         }, 10000);
       } catch (e) {
         await cerrarEscanerCodigo();
@@ -912,6 +921,130 @@
       }
       document.getElementById('lector').innerHTML = '';
       document.getElementById('zona-camara').classList.add('hidden');
+    }
+
+    // ---------- 1c) FOTO DEL CÓDIGO DE BARRAS ----------
+    // Por si el vídeo en directo no llega a leerlo (reflejos, envases brillantes, móviles lentos):
+    // haces una foto fija y la analizamos con varios lectores, uno tras otro.
+
+    // Carga una foto y la dibuja en un lienzo con el lado largo = "lado" px (opcionalmente en gris con contraste).
+    function fotoALienzo(img, lado, contraste) {
+      const escala = Math.min(1, lado / Math.max(img.width, img.height));
+      const lienzo = document.createElement('canvas');
+      lienzo.width = Math.max(1, Math.round(img.width * escala));
+      lienzo.height = Math.max(1, Math.round(img.height * escala));
+      const ctx = lienzo.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      if (contraste) {
+        const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
+        const px = datos.data;
+        for (let i = 0; i < px.length; i += 4) {
+          let v = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+          v = Math.max(0, Math.min(255, (v - 128) * 1.6 + 128));
+          px[i] = px[i + 1] = px[i + 2] = v;
+        }
+        ctx.putImageData(datos, 0, 0);
+      }
+      return lienzo;
+    }
+
+    function abrirImagen(archivo) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('No se pudo abrir la foto.'));
+        img.src = URL.createObjectURL(archivo);
+      });
+    }
+
+    // Espera como mucho "ms" a una promesa (para que ningún lector se quede colgado).
+    function conLimite(promesa, ms) {
+      return Promise.race([promesa, new Promise((_, rej) => setTimeout(() => rej(new Error('tiempo')), ms))]);
+    }
+
+    // Busca un código en la foto. Devuelve el texto del código o null.
+    async function decodificarFotoCodigo(archivo) {
+      const img = await abrirImagen(archivo);
+      try {
+        // 1) Lector nativo del navegador (BarcodeDetector), si existe. Si da problemas, lo saltamos.
+        if ('BarcodeDetector' in window) {
+          try {
+            const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'codabar'] });
+            const encontrados = await conLimite(detector.detect(fotoALienzo(img, 1600, false)), 4000);
+            if (encontrados && encontrados[0] && encontrados[0].rawValue) return encontrados[0].rawValue;
+          } catch (_) { /* este navegador no lo admite bien: seguimos con el siguiente */ }
+        }
+
+        // 2) ZXing, probando varios tamaños y una versión en gris con más contraste.
+        let ZX = null;
+        try { ZX = await cargarZXing(); } catch (_) { ZX = null; }
+        if (ZX) {
+          let pistas;
+          const L = window.ZXing;
+          if (L && L.DecodeHintType && L.BarcodeFormat) {
+            const B = L.BarcodeFormat;
+            pistas = new Map();
+            pistas.set(L.DecodeHintType.POSSIBLE_FORMATS,
+              [B.EAN_13, B.EAN_8, B.UPC_A, B.UPC_E, B.CODE_128, B.CODE_39, B.ITF, B.CODABAR].filter(f => f !== undefined));
+            pistas.set(L.DecodeHintType.TRY_HARDER, true);   // también prueba el código girado
+          }
+          const lector = new ZX.BrowserMultiFormatReader(pistas);
+          for (const [lado, contraste] of [[1600, false], [1000, false], [1600, true], [2400, false], [800, true]]) {
+            try {
+              const url = fotoALienzo(img, lado, contraste).toDataURL('image/jpeg', 0.92);
+              const resultado = await conLimite(lector.decodeFromImageUrl(url), 6000);
+              if (resultado && resultado.getText()) return resultado.getText();
+            } catch (_) { /* no lo encontró con este tamaño: probamos el siguiente */ }
+          }
+        }
+
+        // 3) html5-qrcode con scanFile (sin lector nativo).
+        if (window.Html5Qrcode) {
+          let contenedor = document.getElementById('lector-foto');
+          if (!contenedor) {
+            contenedor = document.createElement('div');
+            contenedor.id = 'lector-foto';
+            contenedor.style.display = 'none';
+            document.body.appendChild(contenedor);
+          }
+          const F = window.Html5QrcodeSupportedFormats;
+          const opciones = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: false } };
+          if (F) {
+            opciones.formatsToSupport = ['EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'CODE_128', 'CODE_39', 'ITF', 'CODABAR']
+              .map(nombre => F[nombre]).filter(valor => valor !== undefined);
+          }
+          const lectorFoto = new Html5Qrcode('lector-foto', opciones);
+          try {
+            const reducida = await new Promise(res => fotoALienzo(img, 1600, false).toBlob(res, 'image/jpeg', 0.92));
+            const archivoReducido = new File([reducida], 'codigo.jpg', { type: 'image/jpeg' });
+            const codigo = await conLimite(lectorFoto.scanFile(archivoReducido, false), 8000);
+            if (codigo) return codigo;
+          } catch (_) { /* tampoco lo encontró */ }
+          finally { try { lectorFoto.clear(); } catch (_) { /* nada */ } }
+        }
+        return null;
+      } finally {
+        URL.revokeObjectURL(img.src);
+      }
+    }
+
+    async function leerFotoCodigo(input) {
+      const archivo = input.files && input.files[0];
+      input.value = ''; // permite repetir con la misma foto
+      if (!archivo) return;
+      await cerrarEscanerCodigo(); // por si la cámara en directo seguía abierta
+      avisoEscaner('Analizando la foto del código de barras…');
+      try {
+        const codigo = await decodificarFotoCodigo(archivo);
+        if (!codigo) {
+          avisoEscaner('No he encontrado ningún código de barras en la foto. Hazla de cerca y recta, con el código en horizontal ocupando buena parte de la foto, nítido y sin reflejos (inclina un poco el envase). También puedes escribir el número abajo.', 'error');
+          return;
+        }
+        yaLeido = false;
+        alLeerCodigo(codigo);   // rellena el número y busca el producto
+      } catch (e) {
+        avisoEscaner('No se pudo abrir la foto. Prueba a hacerla otra vez o escribe el número abajo.', 'error');
+      }
     }
 
     // Busca un código de barras: primero entre tus alimentos, luego en Open Food Facts.
