@@ -122,7 +122,14 @@
       <p id="estado-escaner" class="text-[11px] text-slate-400"></p>
     </div>
 
-    <div class="flex gap-2 pt-1">
+    <!-- NUEVO: filtro rápido. Escribe parte del nombre y el desplegable de abajo
+         se reduce al instante a los alimentos que coinciden (básicos y tuyos). Sin internet. -->
+    <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos (ej. lentejas, salmón, yogur…)"
+      oninput="filtrarAlimentos()" onkeydown="if (event.key === 'Enter') document.getElementById('gramos-input').focus()"
+      class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+    <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1"></p>
+
+    <div class="flex gap-2">
       <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
            así aparecen tanto los alimentos de base como los tuyos. -->
       <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm"></select>
@@ -255,11 +262,145 @@
   </div>
 
   <script>
+    // ---------- BASE DE ALIMENTOS (funciona sin internet) ----------
+    // Valores medios por 100 g (tablas de composición españolas y USDA, redondeados).
+    // "c" son hidratos disponibles (como en las etiquetas europeas, sin contar la fibra).
+    // Si no se indica "cocido", el valor es en crudo o tal como se compra.
+    // Las claves pollo, arroz, avena y huevo se mantienen igual que en versiones anteriores.
+    const CATEGORIAS = ['Frutas', 'Legumbres', 'Carnes y huevos', 'Pescados', 'Lácteos',
+      'Cereales y tubérculos', 'Verduras', 'Frutos secos y grasas'];
+
     const FOOD_DB = {
-      pollo: { name: 'Pechuga de pollo', kcal: 165, p: 31, c: 0, f: 3.6 },
-      arroz: { name: 'Arroz blanco cocido', kcal: 130, p: 2.7, c: 28, f: 0.3 },
-      avena: { name: 'Avena', kcal: 389, p: 17, c: 66, f: 7 },
-      huevo: { name: 'Huevo entero', kcal: 155, p: 13, c: 1.1, f: 11 }
+      // --- Frutas ---
+      manzana:      { cat: 'Frutas', name: 'Manzana', kcal: 52, p: 0.3, c: 12, f: 0.2 },
+      platano:      { cat: 'Frutas', name: 'Plátano', kcal: 89, p: 1.1, c: 20, f: 0.3 },
+      naranja:      { cat: 'Frutas', name: 'Naranja', kcal: 47, p: 0.9, c: 9, f: 0.1 },
+      mandarina:    { cat: 'Frutas', name: 'Mandarina', kcal: 53, p: 0.8, c: 11, f: 0.3 },
+      pera:         { cat: 'Frutas', name: 'Pera', kcal: 57, p: 0.4, c: 12, f: 0.1 },
+      fresas:       { cat: 'Frutas', name: 'Fresas', kcal: 32, p: 0.7, c: 6, f: 0.3 },
+      uvas:         { cat: 'Frutas', name: 'Uvas', kcal: 69, p: 0.7, c: 16, f: 0.2 },
+      sandia:       { cat: 'Frutas', name: 'Sandía', kcal: 30, p: 0.6, c: 7, f: 0.2 },
+      melon:        { cat: 'Frutas', name: 'Melón', kcal: 34, p: 0.8, c: 8, f: 0.2 },
+      kiwi:         { cat: 'Frutas', name: 'Kiwi', kcal: 61, p: 1.1, c: 11, f: 0.5 },
+      pina:         { cat: 'Frutas', name: 'Piña', kcal: 50, p: 0.5, c: 12, f: 0.1 },
+      melocoton:    { cat: 'Frutas', name: 'Melocotón', kcal: 39, p: 0.9, c: 8, f: 0.3 },
+      arandanos:    { cat: 'Frutas', name: 'Arándanos', kcal: 57, p: 0.7, c: 12, f: 0.3 },
+      mango:        { cat: 'Frutas', name: 'Mango', kcal: 60, p: 0.8, c: 14, f: 0.4 },
+      cerezas:      { cat: 'Frutas', name: 'Cerezas', kcal: 63, p: 1.1, c: 14, f: 0.2 },
+      higos:        { cat: 'Frutas', name: 'Higos', kcal: 74, p: 0.8, c: 16, f: 0.3 },
+      aguacate:     { cat: 'Frutas', name: 'Aguacate', kcal: 160, p: 2, c: 1.8, f: 15 },
+
+      // --- Legumbres ---
+      lentejas:            { cat: 'Legumbres', name: 'Lentejas (secas)', kcal: 340, p: 24, c: 48, f: 1.1 },
+      lentejas_cocidas:    { cat: 'Legumbres', name: 'Lentejas cocidas', kcal: 116, p: 9, c: 12, f: 0.4 },
+      garbanzos:           { cat: 'Legumbres', name: 'Garbanzos (secos)', kcal: 364, p: 19, c: 45, f: 6 },
+      garbanzos_cocidos:   { cat: 'Legumbres', name: 'Garbanzos cocidos', kcal: 164, p: 9, c: 20, f: 2.6 },
+      alubias:             { cat: 'Legumbres', name: 'Alubias blancas (secas)', kcal: 333, p: 23, c: 45, f: 0.9 },
+      alubias_cocidas:     { cat: 'Legumbres', name: 'Alubias cocidas', kcal: 139, p: 9.7, c: 19, f: 0.4 },
+      guisantes:           { cat: 'Legumbres', name: 'Guisantes', kcal: 81, p: 5.4, c: 9.4, f: 0.4 },
+      tofu:                { cat: 'Legumbres', name: 'Tofu firme', kcal: 145, p: 15.8, c: 2, f: 8.7 },
+      hummus:              { cat: 'Legumbres', name: 'Hummus', kcal: 166, p: 7.9, c: 9, f: 9.6 },
+
+      // --- Carnes y huevos ---
+      pollo:             { cat: 'Carnes y huevos', name: 'Pechuga de pollo (cocinada)', kcal: 165, p: 31, c: 0, f: 3.6 },
+      pollo_crudo:       { cat: 'Carnes y huevos', name: 'Pechuga de pollo (cruda)', kcal: 120, p: 22.5, c: 0, f: 2.6 },
+      muslo_pollo:       { cat: 'Carnes y huevos', name: 'Muslo de pollo sin piel', kcal: 121, p: 19.7, c: 0, f: 4.1 },
+      pavo:              { cat: 'Carnes y huevos', name: 'Pechuga de pavo', kcal: 110, p: 24, c: 0, f: 1 },
+      ternera:           { cat: 'Carnes y huevos', name: 'Ternera magra (filete)', kcal: 125, p: 22, c: 0, f: 4 },
+      carne_picada:      { cat: 'Carnes y huevos', name: 'Carne picada de vacuno (15% grasa)', kcal: 215, p: 18.6, c: 0, f: 15 },
+      lomo_cerdo:        { cat: 'Carnes y huevos', name: 'Lomo de cerdo', kcal: 143, p: 21, c: 0, f: 6.3 },
+      solomillo_cerdo:   { cat: 'Carnes y huevos', name: 'Solomillo de cerdo', kcal: 120, p: 21, c: 0, f: 3.5 },
+      conejo:            { cat: 'Carnes y huevos', name: 'Conejo', kcal: 133, p: 21, c: 0, f: 5.5 },
+      jamon_serrano:     { cat: 'Carnes y huevos', name: 'Jamón serrano', kcal: 240, p: 30, c: 0, f: 13 },
+      jamon_cocido:      { cat: 'Carnes y huevos', name: 'Jamón cocido (york)', kcal: 105, p: 18, c: 1.5, f: 3 },
+      fiambre_pavo:      { cat: 'Carnes y huevos', name: 'Fiambre de pechuga de pavo', kcal: 95, p: 18, c: 2, f: 1.5 },
+      chorizo:           { cat: 'Carnes y huevos', name: 'Chorizo', kcal: 455, p: 24, c: 1.9, f: 39 },
+      huevo:             { cat: 'Carnes y huevos', name: 'Huevo entero', kcal: 155, p: 13, c: 1.1, f: 11 },
+      clara:             { cat: 'Carnes y huevos', name: 'Clara de huevo', kcal: 52, p: 10.9, c: 0.7, f: 0.2 },
+
+      // --- Pescados ---
+      salmon:            { cat: 'Pescados', name: 'Salmón', kcal: 208, p: 20, c: 0, f: 13.4 },
+      merluza:           { cat: 'Pescados', name: 'Merluza', kcal: 80, p: 17.5, c: 0, f: 1 },
+      bacalao:           { cat: 'Pescados', name: 'Bacalao fresco', kcal: 82, p: 18, c: 0, f: 0.7 },
+      lubina:            { cat: 'Pescados', name: 'Lubina', kcal: 97, p: 18.4, c: 0, f: 2 },
+      atun_fresco:       { cat: 'Pescados', name: 'Atún fresco', kcal: 130, p: 23, c: 0, f: 4 },
+      atun_natural:      { cat: 'Pescados', name: 'Atún en lata al natural (escurrido)', kcal: 116, p: 26, c: 0, f: 1 },
+      atun_aceite:       { cat: 'Pescados', name: 'Atún en aceite (escurrido)', kcal: 198, p: 29, c: 0, f: 8.2 },
+      sardinas_lata:     { cat: 'Pescados', name: 'Sardinas en aceite (escurridas)', kcal: 208, p: 24.6, c: 0, f: 11.5 },
+      caballa:           { cat: 'Pescados', name: 'Caballa', kcal: 205, p: 18.6, c: 0, f: 13.9 },
+      gambas:            { cat: 'Pescados', name: 'Gambas / langostinos', kcal: 85, p: 19, c: 0, f: 1 },
+      mejillones:        { cat: 'Pescados', name: 'Mejillones', kcal: 86, p: 12, c: 3.7, f: 2.2 },
+      calamar:           { cat: 'Pescados', name: 'Calamar', kcal: 92, p: 15.6, c: 3.1, f: 1.4 },
+      pulpo:             { cat: 'Pescados', name: 'Pulpo', kcal: 82, p: 14.9, c: 2.2, f: 1 },
+
+      // --- Lácteos ---
+      leche_entera:      { cat: 'Lácteos', name: 'Leche entera', kcal: 64, p: 3.1, c: 4.7, f: 3.6 },
+      leche_semi:        { cat: 'Lácteos', name: 'Leche semidesnatada', kcal: 46, p: 3.2, c: 4.7, f: 1.6 },
+      leche_desnatada:   { cat: 'Lácteos', name: 'Leche desnatada', kcal: 35, p: 3.4, c: 4.9, f: 0.1 },
+      yogur_natural:     { cat: 'Lácteos', name: 'Yogur natural', kcal: 61, p: 3.5, c: 4.7, f: 3.3 },
+      yogur_desnatado:   { cat: 'Lácteos', name: 'Yogur natural desnatado', kcal: 42, p: 4.3, c: 5.5, f: 0.1 },
+      yogur_griego:      { cat: 'Lácteos', name: 'Yogur griego', kcal: 130, p: 3.5, c: 4, f: 10 },
+      skyr:              { cat: 'Lácteos', name: 'Skyr natural', kcal: 63, p: 11, c: 4, f: 0.2 },
+      kefir:             { cat: 'Lácteos', name: 'Kéfir', kcal: 64, p: 3.3, c: 4.5, f: 3.5 },
+      queso_batido:      { cat: 'Lácteos', name: 'Queso fresco batido 0%', kcal: 46, p: 8, c: 3.5, f: 0.2 },
+      queso_burgos:      { cat: 'Lácteos', name: 'Queso fresco tipo Burgos', kcal: 180, p: 14, c: 3, f: 12 },
+      requeson:          { cat: 'Lácteos', name: 'Requesón', kcal: 98, p: 11, c: 3.4, f: 4.3 },
+      mozzarella:        { cat: 'Lácteos', name: 'Mozzarella fresca', kcal: 250, p: 18.5, c: 1, f: 19 },
+      queso_curado:      { cat: 'Lácteos', name: 'Queso curado (manchego)', kcal: 410, p: 28, c: 0.5, f: 33 },
+      whey:              { cat: 'Lácteos', name: 'Proteína whey (polvo)', kcal: 390, p: 78, c: 6, f: 6 },
+
+      // --- Cereales y tubérculos ---
+      arroz:             { cat: 'Cereales y tubérculos', name: 'Arroz blanco cocido', kcal: 130, p: 2.7, c: 28, f: 0.3 },
+      arroz_crudo:       { cat: 'Cereales y tubérculos', name: 'Arroz blanco (crudo)', kcal: 355, p: 7, c: 78, f: 0.6 },
+      arroz_integral:    { cat: 'Cereales y tubérculos', name: 'Arroz integral cocido', kcal: 123, p: 2.7, c: 24, f: 1 },
+      avena:             { cat: 'Cereales y tubérculos', name: 'Avena', kcal: 389, p: 17, c: 66, f: 7 },
+      pasta:             { cat: 'Cereales y tubérculos', name: 'Pasta (cruda)', kcal: 359, p: 12.5, c: 71, f: 1.5 },
+      pasta_cocida:      { cat: 'Cereales y tubérculos', name: 'Pasta cocida', kcal: 158, p: 5.8, c: 31, f: 0.9 },
+      pan_blanco:        { cat: 'Cereales y tubérculos', name: 'Pan blanco (barra)', kcal: 270, p: 9, c: 53, f: 1.5 },
+      pan_integral:      { cat: 'Cereales y tubérculos', name: 'Pan integral', kcal: 240, p: 10, c: 42, f: 3 },
+      pan_molde:         { cat: 'Cereales y tubérculos', name: 'Pan de molde', kcal: 260, p: 8.5, c: 46, f: 4 },
+      tortitas_arroz:    { cat: 'Cereales y tubérculos', name: 'Tortitas de arroz', kcal: 385, p: 8, c: 78, f: 3 },
+      corn_flakes:       { cat: 'Cereales y tubérculos', name: 'Copos de maíz', kcal: 375, p: 7, c: 84, f: 0.9 },
+      harina_trigo:      { cat: 'Cereales y tubérculos', name: 'Harina de trigo', kcal: 364, p: 10, c: 76, f: 1 },
+      quinoa_cocida:     { cat: 'Cereales y tubérculos', name: 'Quinoa cocida', kcal: 120, p: 4.4, c: 18.5, f: 1.9 },
+      cuscus_cocido:     { cat: 'Cereales y tubérculos', name: 'Cuscús cocido', kcal: 112, p: 3.8, c: 22, f: 0.2 },
+      patata:            { cat: 'Cereales y tubérculos', name: 'Patata (cruda)', kcal: 77, p: 2, c: 15, f: 0.1 },
+      patata_cocida:     { cat: 'Cereales y tubérculos', name: 'Patata cocida', kcal: 87, p: 1.9, c: 18, f: 0.1 },
+      boniato:           { cat: 'Cereales y tubérculos', name: 'Boniato', kcal: 86, p: 1.6, c: 17, f: 0.1 },
+
+      // --- Verduras ---
+      tomate:            { cat: 'Verduras', name: 'Tomate', kcal: 18, p: 0.9, c: 2.7, f: 0.2 },
+      lechuga:           { cat: 'Verduras', name: 'Lechuga', kcal: 15, p: 1.3, c: 1.5, f: 0.2 },
+      espinacas:         { cat: 'Verduras', name: 'Espinacas', kcal: 23, p: 2.9, c: 1.4, f: 0.4 },
+      brocoli:           { cat: 'Verduras', name: 'Brócoli', kcal: 34, p: 2.8, c: 4, f: 0.4 },
+      coliflor:          { cat: 'Verduras', name: 'Coliflor', kcal: 25, p: 1.9, c: 3, f: 0.3 },
+      zanahoria:         { cat: 'Verduras', name: 'Zanahoria', kcal: 41, p: 0.9, c: 6.8, f: 0.2 },
+      cebolla:           { cat: 'Verduras', name: 'Cebolla', kcal: 40, p: 1.1, c: 7.6, f: 0.1 },
+      ajo:               { cat: 'Verduras', name: 'Ajo', kcal: 149, p: 6.4, c: 31, f: 0.5 },
+      pimiento_rojo:     { cat: 'Verduras', name: 'Pimiento rojo', kcal: 31, p: 1, c: 3.9, f: 0.3 },
+      calabacin:         { cat: 'Verduras', name: 'Calabacín', kcal: 17, p: 1.2, c: 2.1, f: 0.3 },
+      berenjena:         { cat: 'Verduras', name: 'Berenjena', kcal: 25, p: 1, c: 2.9, f: 0.2 },
+      pepino:            { cat: 'Verduras', name: 'Pepino', kcal: 15, p: 0.7, c: 3, f: 0.1 },
+      judias_verdes:     { cat: 'Verduras', name: 'Judías verdes', kcal: 31, p: 1.8, c: 4.3, f: 0.2 },
+      champinones:       { cat: 'Verduras', name: 'Champiñones', kcal: 22, p: 3.1, c: 2.3, f: 0.3 },
+      calabaza:          { cat: 'Verduras', name: 'Calabaza', kcal: 26, p: 1, c: 6, f: 0.1 },
+      alcachofa:         { cat: 'Verduras', name: 'Alcachofa', kcal: 47, p: 3.3, c: 5.1, f: 0.2 },
+      esparragos:        { cat: 'Verduras', name: 'Espárragos verdes', kcal: 20, p: 2.2, c: 1.8, f: 0.1 },
+      maiz_dulce:        { cat: 'Verduras', name: 'Maíz dulce (lata, escurrido)', kcal: 80, p: 2.9, c: 14, f: 1.2 },
+
+      // --- Frutos secos y grasas ---
+      almendras:         { cat: 'Frutos secos y grasas', name: 'Almendras', kcal: 579, p: 21, c: 9, f: 50 },
+      nueces:            { cat: 'Frutos secos y grasas', name: 'Nueces', kcal: 654, p: 15, c: 7, f: 65 },
+      cacahuetes:        { cat: 'Frutos secos y grasas', name: 'Cacahuetes', kcal: 567, p: 26, c: 7.6, f: 49 },
+      anacardos:         { cat: 'Frutos secos y grasas', name: 'Anacardos', kcal: 553, p: 18, c: 27, f: 44 },
+      pistachos:         { cat: 'Frutos secos y grasas', name: 'Pistachos', kcal: 560, p: 20, c: 17, f: 45 },
+      avellanas:         { cat: 'Frutos secos y grasas', name: 'Avellanas', kcal: 628, p: 15, c: 7, f: 61 },
+      crema_cacahuete:   { cat: 'Frutos secos y grasas', name: 'Crema de cacahuete', kcal: 588, p: 25, c: 14, f: 50 },
+      chia:              { cat: 'Frutos secos y grasas', name: 'Semillas de chía', kcal: 486, p: 17, c: 8, f: 31 },
+      aceite_oliva:      { cat: 'Frutos secos y grasas', name: 'Aceite de oliva', kcal: 884, p: 0, c: 0, f: 100 },
+      mantequilla:       { cat: 'Frutos secos y grasas', name: 'Mantequilla', kcal: 717, p: 0.9, c: 0.1, f: 81 },
+      aceitunas:         { cat: 'Frutos secos y grasas', name: 'Aceitunas verdes', kcal: 145, p: 1, c: 0.5, f: 15 },
+      chocolate_negro:   { cat: 'Frutos secos y grasas', name: 'Chocolate negro 70%', kcal: 598, p: 7.8, c: 35, f: 43 }
     };
 
     // Modalidades: 'pesas' | 'calistenia' | 'lastrada'
@@ -455,23 +596,58 @@
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     }
 
-    // Vuelve a crear las opciones del desplegable de alimentos.
+    // Quita tildes y mayúsculas para comparar: "Plátano" y "platano" son lo mismo.
+    function normalizar(texto) {
+      return String(texto).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    // Vuelve a crear las opciones del desplegable de alimentos, por categorías.
+    // Si hay algo escrito en "Filtrar alimentos", solo muestra lo que coincide.
+    // Si le pasas un alimento para elegir, vacía el filtro para que se vea.
     function rellenarSelectorAlimentos(seleccionar) {
       const select = document.getElementById('alimento-select');
+      const filtroInput = document.getElementById('filtro-alimentos');
+      if (seleccionar) filtroInput.value = '';
       const elegido = seleccionar || select.value;
 
-      const opcionesBase = Object.entries(FOOD_DB)
-        .map(([key, item]) => `<option value="${key}">${item.name} (100g)</option>`)
-        .join('');
-      const opcionesMias = customFoods
-        .map(item => `<option value="mio_${item.id}">${escaparHTML(item.name)} (100g)</option>`)
-        .join('');
+      const palabras = normalizar(filtroInput.value).split(/\s+/).filter(Boolean);
+      const coincide = nombre => palabras.every(pal => normalizar(nombre).includes(pal));
+      const opcion = (valor, item) =>
+        `<option value="${valor}">${escaparHTML(item.name)} · ${Math.round(item.kcal)} kcal</option>`;
 
-      select.innerHTML = `<optgroup label="Básicos">${opcionesBase}</optgroup>` +
-        (opcionesMias ? `<optgroup label="Mis alimentos">${opcionesMias}</optgroup>` : '');
+      let html = '';
+      let total = 0;
+      const mias = customFoods.filter(item => coincide(item.name));
+      if (mias.length) {
+        html += `<optgroup label="Mis alimentos">${mias.map(item => opcion('mio_' + item.id, item)).join('')}</optgroup>`;
+        total += mias.length;
+      }
+      CATEGORIAS.forEach(cat => {
+        const deLaCategoria = Object.entries(FOOD_DB).filter(([, item]) => item.cat === cat && coincide(item.name));
+        if (!deLaCategoria.length) return;
+        html += `<optgroup label="${cat}">${deLaCategoria.map(([key, item]) => opcion(key, item)).join('')}</optgroup>`;
+        total += deLaCategoria.length;
+      });
 
-      // Si el alimento que tenías elegido sigue existiendo, lo dejamos marcado.
-      if (todosLosAlimentos()[elegido]) select.value = elegido;
+      const info = document.getElementById('info-filtro');
+      if (!total) {
+        select.innerHTML = '<option value="">Sin resultados</option>';
+        info.textContent = 'No está en la lista. Búscalo en "Buscar alimento" (Open Food Facts) o créalo en "Mis alimentos".';
+        return;
+      }
+      select.innerHTML = html;
+      info.textContent = palabras.length ? `${total} alimento${total === 1 ? '' : 's'} encontrado${total === 1 ? '' : 's'} · valores por 100 g` : '';
+
+      // Si el alimento que tenías elegido sigue en la lista, lo dejamos marcado;
+      // si no, queda elegido el primero que coincide.
+      if ([...select.options].some(o => o.value === elegido)) select.value = elegido;
+    }
+
+    // Se ejecuta al escribir en "Filtrar alimentos".
+    function filtrarAlimentos() {
+      const select = document.getElementById('alimento-select');
+      rellenarSelectorAlimentos();
+      if (select.options.length) select.selectedIndex = 0; // el primero que coincide
     }
 
     function addCustomFood() {
@@ -618,10 +794,8 @@
 
       avisoEscaner('Buscando el producto en Open Food Facts…');
       try {
-        const url = `https://world.openfoodfacts.org/api/v2/product/${codigo}.json` +
-          '?fields=product_name,product_name_es,generic_name,brands,nutriments';
-        const respuesta = await fetch(url);
-        const datos = await respuesta.json().catch(() => null);
+        const datos = await pedirOFF(`/api/v2/product/${codigo}.json` +
+          '?fields=code,product_name,product_name_es,generic_name,brands,nutriments');
 
         if (!datos || datos.status === 0 || !datos.product) {
           avisoEscaner(`El código ${codigo} no está en Open Food Facts. Prueba a buscarlo por nombre arriba, o haz una foto a la tabla nutricional.`, 'error');
@@ -638,7 +812,66 @@
           avisoEscaner('¡Producto encontrado! Revisa los datos por 100 g y pulsa "Guardar alimento".', 'ok');
         }
       } catch (e) {
-        avisoEscaner('No se pudo conectar con Open Food Facts. Comprueba tu conexión a internet e inténtalo de nuevo.', 'error');
+        avisoEscaner(mensajeErrorOFF(e), 'error');
+      }
+    }
+
+    // ---------- CONEXIÓN CON OPEN FOOD FACTS (con respaldo) ----------
+    // Probamos primero el servidor de España y, si falla o tarda más de 8 s,
+    // el servidor mundial. Así distinguimos "no tienes internet" de "su servidor va lento".
+    const SERVIDORES_OFF = ['https://es.openfoodfacts.org', 'https://world.openfoodfacts.org'];
+    const ESPERA_OFF_MS = 8000;
+
+    // Error con un "tipo" para poder dar el mensaje correcto.
+    function errorOFF(tipo) { const e = new Error(tipo); e.tipo = tipo; return e; }
+
+    // Pide una ruta a Open Food Facts. "aceptar(datos)" decide si la respuesta vale
+    // o si conviene probar el siguiente servidor (por ejemplo, 0 resultados en España).
+    async function pedirOFF(ruta, aceptar = () => true, señalExterna = null) {
+      if (!navigator.onLine) throw errorOFF('sin-internet');
+      let ultimoFallo = 'servidor';
+      let mejorRespuesta = null;
+
+      for (const servidor of SERVIDORES_OFF) {
+        const control = new AbortController();
+        const cancelarFuera = () => control.abort();
+        if (señalExterna) señalExterna.addEventListener('abort', cancelarFuera);
+        let porTiempo = false;
+        const reloj = setTimeout(() => { porTiempo = true; control.abort(); }, ESPERA_OFF_MS);
+        try {
+          const respuesta = await fetch(servidor + ruta, { signal: control.signal });
+          if (respuesta.status === 429) { ultimoFallo = 'limite'; continue; }
+          if (respuesta.status === 404) {          // "no existe": no hace falta probar otro servidor
+            return await respuesta.json().catch(() => ({ status: 0 }));
+          }
+          if (!respuesta.ok) { ultimoFallo = 'servidor'; continue; }
+          const datos = await respuesta.json();
+          if (aceptar(datos)) return datos;
+          mejorRespuesta = datos;                  // válida pero mejorable: probamos el otro
+        } catch (e) {
+          if (señalExterna && señalExterna.aborted) throw errorOFF('cancelada');
+          if (!navigator.onLine) throw errorOFF('sin-internet');
+          ultimoFallo = porTiempo ? 'lento' : 'servidor';
+        } finally {
+          clearTimeout(reloj);
+          if (señalExterna) señalExterna.removeEventListener('abort', cancelarFuera);
+        }
+      }
+      if (mejorRespuesta) return mejorRespuesta;
+      throw errorOFF(ultimoFallo);
+    }
+
+    // Mensaje claro según lo que haya fallado.
+    function mensajeErrorOFF(e) {
+      switch (e && e.tipo) {
+        case 'sin-internet':
+          return 'No tienes conexión a internet. Los alimentos básicos y los tuyos siguen funcionando: búscalos en "Filtrar alimentos".';
+        case 'lento':
+          return 'Open Food Facts está tardando demasiado en responder (es su servidor, no tu internet). Prueba en un rato o usa los alimentos básicos.';
+        case 'limite':
+          return 'Has hecho muchas búsquedas seguidas y Open Food Facts pide esperar. Prueba dentro de un minuto.';
+        default:
+          return 'El servidor de Open Food Facts no responde ahora mismo (no es tu internet). Prueba en un rato o usa los alimentos básicos.';
       }
     }
 
@@ -663,29 +896,37 @@
     // ---------- 1b) BUSCADOR POR NOMBRE EN OPEN FOOD FACTS ----------
     let resultadosBusqueda = [];   // los productos de la última búsqueda
     let busquedaEnCurso = null;    // para cancelar una búsqueda si haces otra
+    let resultadosLocales = [];    // coincidencias en tu lista (sin internet)
 
     async function buscarPorNombre() {
       const texto = document.getElementById('busqueda-input').value.trim();
-      const lista = document.getElementById('resultados-busqueda');
       if (texto.length < 2) {
         avisoEscaner('Escribe al menos 2 letras del producto (y la marca si la sabes).', 'error');
         return;
       }
 
+      // Si había otra búsqueda en marcha, la cancelamos.
       if (busquedaEnCurso) busquedaEnCurso.abort();
       const control = new AbortController();
       busquedaEnCurso = control;
-      const reloj = setTimeout(() => control.abort(), 15000); // máximo 15 s esperando
 
-      lista.innerHTML = '';
-      avisoEscaner('Buscando en Open Food Facts…');
+      // 1) Al instante y sin internet: alimentos básicos y tuyos que coinciden.
+      const palabras = normalizar(texto).split(/\s+/).filter(Boolean);
+      const coincide = nombre => palabras.every(pal => normalizar(nombre).includes(pal));
+      resultadosLocales = [
+        ...customFoods.filter(item => coincide(item.name)).map(item => ({ key: 'mio_' + item.id, item })),
+        ...Object.entries(FOOD_DB).filter(([, item]) => coincide(item.name)).map(([key, item]) => ({ key, item }))
+      ].slice(0, 5);
+      resultadosBusqueda = [];
+      mostrarResultados();
+      avisoEscaner('Buscando también en Open Food Facts… (máx. 8 s por servidor)');
+
+      // 2) Open Food Facts: primero España; si no hay resultados o falla, el mundial.
       try {
-        const url = 'https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20' +
+        const ruta = '/cgi/search.pl?action=process&json=1&search_simple=1&page_size=20' +
           '&fields=code,product_name,product_name_es,generic_name,brands,quantity,nutriments' +
           '&search_terms=' + encodeURIComponent(texto);
-        const respuesta = await fetch(url, { signal: control.signal });
-        if (!respuesta.ok) throw new Error('http ' + respuesta.status);
-        const datos = await respuesta.json();
+        const datos = await pedirOFF(ruta, d => (d.products || []).length > 0, control.signal);
 
         // Nos quedamos con los que tienen nombre, y ponemos primero los que traen todos los valores.
         resultadosBusqueda = (datos.products || [])
@@ -693,36 +934,54 @@
           .map(prod => ({ prod, info: datosDeProducto(prod) }))
           .sort((a, b) => a.info.faltan - b.info.faltan)
           .slice(0, 10);
-
-        if (!resultadosBusqueda.length) {
-          avisoEscaner(`No he encontrado nada con "${texto}". Prueba con menos palabras o con la marca.`, 'error');
-          return;
-        }
         mostrarResultados();
-        avisoEscaner('Toca un producto para rellenar sus valores por 100 g.', 'ok');
+
+        if (!resultadosBusqueda.length && !resultadosLocales.length) {
+          avisoEscaner(`No he encontrado nada con "${texto}". Prueba con menos palabras o con la marca.`, 'error');
+        } else if (!resultadosBusqueda.length) {
+          avisoEscaner('Open Food Facts no tiene resultados, pero sí tienes coincidencias en tu lista.', 'ok');
+        } else {
+          avisoEscaner('Toca un producto para usarlo.', 'ok');
+        }
       } catch (e) {
-        if (control.signal.aborted && busquedaEnCurso !== control) return; // la sustituyó otra búsqueda
-        avisoEscaner(control.signal.aborted
-          ? 'La búsqueda está tardando demasiado. Inténtalo de nuevo en un momento.'
-          : 'No se pudo conectar con Open Food Facts. Comprueba tu conexión a internet.', 'error');
+        if (e.tipo === 'cancelada') return; // la sustituyó otra búsqueda
+        avisoEscaner(mensajeErrorOFF(e) + (resultadosLocales.length ? ' Mientras, tienes arriba coincidencias de tu lista.' : ''), 'error');
       } finally {
-        clearTimeout(reloj);
         if (busquedaEnCurso === control) busquedaEnCurso = null;
       }
     }
 
+    // Elegir un alimento de tu lista: queda seleccionado arriba, solo falta poner los gramos.
+    function elegirLocal(i) {
+      const elegido = resultadosLocales[i];
+      if (!elegido) return;
+      rellenarSelectorAlimentos(elegido.key);
+      document.getElementById('resultados-busqueda').innerHTML = '';
+      const gramos = document.getElementById('gramos-input');
+      gramos.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      gramos.focus();
+      avisoEscaner(`"${elegido.item.name}" elegido arriba: pon los gramos y pulsa +.`, 'ok');
+    }
+
+    // Pinta los resultados: primero los de tu lista (sin internet) y luego los de Open Food Facts.
     function mostrarResultados() {
       const v = x => (x === undefined || x === '' || isNaN(parseFloat(x))) ? '–' : Math.round(parseFloat(x) * 10) / 10;
-      document.getElementById('resultados-busqueda').innerHTML = resultadosBusqueda
-        .map(({ prod, info }, i) => `<li>
+      const locales = resultadosLocales.map(({ item }, i) => `<li>
+          <button onclick="elegirLocal(${i})"
+            class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-sky-900 rounded-xl px-3 py-2">
+            <span class="block text-slate-100">${escaparHTML(item.name)} <span class="text-sky-400">· en tu lista</span></span>
+            <span class="block text-slate-400">${v(item.kcal)} kcal · P ${v(item.p)} · C ${v(item.c)} · G ${v(item.f)}</span>
+          </button>
+        </li>`);
+      const deOFF = resultadosBusqueda.map(({ prod, info }, i) => `<li>
           <button onclick="elegirResultado(${i})"
             class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2">
             <span class="block text-slate-100">${escaparHTML(info.nombre)}${prod.quantity ? ` <span class="text-slate-500">· ${escaparHTML(prod.quantity)}</span>` : ''}</span>
             <span class="block text-slate-400">${v(info.kcal)} kcal · P ${v(info.p)} · C ${v(info.c)} · G ${v(info.f)}
               ${info.faltan ? '<span class="text-amber-400">· faltan datos</span>' : ''}</span>
           </button>
-        </li>`)
-        .join('');
+        </li>`);
+      document.getElementById('resultados-busqueda').innerHTML = [...locales, ...deOFF].join('');
     }
 
     function elegirResultado(i) {
