@@ -751,7 +751,9 @@
       avisoEscaner('Pidiendo permiso para usar la cámara… Si el navegador pregunta, pulsa "Permitir".');
 
       const F = window.Html5QrcodeSupportedFormats;
-      const opciones = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: true } };
+      // useBarCodeDetectorIfSupported: false -> usamos el decodificador de la propia librería
+      // (ZXing) en lugar del lector nativo del navegador, que en algunos móviles enfoca pero no lee.
+      const opciones = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: false } };
       // Formatos que puede leer: los de supermercado (EAN/UPC) y otros habituales
       // (CODE_128, CODE_39, ITF, CODABAR). Si la librería no trae la lista, lee todos.
       if (F) {
@@ -762,28 +764,9 @@
 
       lectorCodigo = new Html5Qrcode('lector', opciones);
 
-      // Recuadro de lectura amplio y flexible para códigos horizontales:
-      // ~92 % del ancho real del visor y algo más de la mitad del alto (entre 150 y 260 px).
-      // Así el código no tiene que estar perfectamente centrado para que se lea.
-      const recuadro = (anchoVisor, altoVisor) => {
-        const ancho = Math.floor(anchoVisor * 0.92);
-        const alto = Math.min(260, Math.max(150, Math.floor(altoVisor * 0.55)));
-        return {
-          width: Math.max(150, Math.min(ancho, anchoVisor - 4)),
-          height: Math.max(80, Math.min(alto, altoVisor - 4))
-        };
-      };
-
-      // Lo que pedimos a la cámara: la trasera, buena resolución (1280×720) y enfoque continuo
-      // si el móvil lo admite. Si el navegador no acepta algo, lo ignora o lo reintentamos sin ello.
-      const camaraIdeal = {
-        facingMode: 'environment',
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        advanced: [{ focusMode: 'continuous' }]
-      };
-      // fps: 15 = intenta leer 15 veces por segundo. disableFlip: no hace falta mirar la imagen en espejo.
-      const configuracion = videoConstraints => ({ fps: 15, qrbox: recuadro, disableFlip: true, videoConstraints });
+      // Sin recuadro (qrbox): intenta leer en TODO el visor, así no se cortan los extremos del código.
+      // fps: 15 = 15 intentos por segundo. disableFlip: no hace falta probar la imagen en espejo.
+      const configuracion = { fps: 15, disableFlip: true };
 
       let yaLeido = false;                       // evita leer el mismo código dos veces seguidas
       const alLeer = async codigo => {           // se llama al detectar un código
@@ -797,16 +780,10 @@
       const sinCodigo = () => { /* aún no ve ningún código: no hacemos nada */ };
 
       try {
-        try {
-          await lectorCodigo.start({ facingMode: 'environment' }, configuracion(camaraIdeal), alLeer, sinCodigo);
-        } catch (e) {
-          // Si falló por permisos, no insistimos. Si fue por la configuración, probamos la básica.
-          if (/NotAllowed|Permission/i.test(String(e && (e.name || e.message || e)))) throw e;
-          try { if (lectorCodigo.isScanning) await lectorCodigo.stop(); } catch (_) { /* nada */ }
-          await lectorCodigo.start({ facingMode: 'environment' }, { fps: 15, qrbox: recuadro, disableFlip: true }, alLeer, sinCodigo);
-        }
+        // Cámara trasera, sin forzar resolución: el móvil elige la suya.
+        await lectorCodigo.start({ facingMode: 'environment' }, configuracion, alLeer, sinCodigo);
 
-        // Por si el navegador ignoró el enfoque continuo al arrancar, lo pedimos otra vez (si lo admite).
+        // Si el móvil lo admite, pedimos enfoque continuo (si no, no pasa nada).
         try {
           const capacidades = lectorCodigo.getRunningTrackCapabilities();
           if (capacidades && Array.isArray(capacidades.focusMode) && capacidades.focusMode.includes('continuous')) {
@@ -814,7 +791,7 @@
           }
         } catch (_) { /* este móvil no permite cambiar el enfoque: no pasa nada */ }
 
-        avisoEscaner('Apunta al código de barras en horizontal, dentro del recuadro, a unos 10–15 cm.');
+        avisoEscaner('Apunta al código de barras en horizontal, a unos 10–15 cm. Se lee en toda la imagen.');
 
         // Si en 10 segundos no lo ha leído, damos un consejo (sin cerrar la cámara).
         clearTimeout(consejoCamara);
