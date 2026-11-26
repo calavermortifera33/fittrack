@@ -730,10 +730,65 @@
     }
 
     // ---------- 1) CÓDIGO DE BARRAS CON LA CÁMARA ----------
-    // Usamos la librería html5-qrcode (cargada arriba, en <head>). Si el navegador
-    // tiene un lector de códigos propio (BarcodeDetector), la librería lo aprovecha.
-    let lectorCodigo = null;
+    // Lector principal: ZXing (@zxing/browser), muy fiable con códigos de barras de productos.
+    // Se descarga la primera vez que abres la cámara. Si no se pudiera cargar,
+    // usamos como respaldo html5-qrcode (cargada arriba, en <head>).
+    let lectorCodigo = null;    // lector html5-qrcode (respaldo)
+    let controlesZXing = null;  // controles del lector ZXing (para pararlo)
     let consejoCamara = null;   // temporizador del consejo "¿No lo lee?"
+    let promesaZXing = null;
+
+    function cargarScript(url) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = url;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('no se pudo cargar ' + url));
+        document.head.appendChild(s);
+      });
+    }
+
+    function cargarZXing() {
+      if (window.ZXingBrowser) return Promise.resolve(window.ZXingBrowser);
+      if (!promesaZXing) {
+        promesaZXing = cargarScript('https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js')
+          .then(() => cargarScript('https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js'))
+          .then(() => {
+            if (!window.ZXingBrowser || !window.ZXingBrowser.BrowserMultiFormatReader) throw new Error('ZXing incompleto');
+            return window.ZXingBrowser;
+          })
+          .catch(e => { promesaZXing = null; throw e; });
+      }
+      return promesaZXing;
+    }
+
+    // Qué hacer cuando la cámara lee un código (vale para los dos lectores).
+    let yaLeido = false;   // evita buscar el mismo código dos veces seguidas
+    async function alLeerCodigo(codigo) {
+      if (yaLeido) return;
+      yaLeido = true;
+      await cerrarEscanerCodigo();
+      if (navigator.vibrate) navigator.vibrate(80);
+      document.getElementById('codigo-input').value = codigo;
+      // Mostramos el número leído: así sabes que la lectura ha ido bien,
+      // y si luego falla algo es la búsqueda del producto, no la cámara.
+      avisoEscaner(`✓ Código leído: ${codigo}. Buscando el producto…`, 'ok');
+      buscarCodigo(codigo);
+    }
+
+    // Mensajes claros si la cámara no se puede abrir.
+    function avisoErrorCamara(e) {
+      const txt = String(e && (e.name || e.message || e));
+      if (/NotAllowed|Permission/i.test(txt)) {
+        avisoEscaner('No hay permiso para usar la cámara. Actívalo en los ajustes del navegador (icono del candado junto a la dirección) y vuelve a intentarlo.', 'error');
+      } else if (/NotFound|no camera|Requested device not found|DevicesNotFound/i.test(txt)) {
+        avisoEscaner('No se ha encontrado ninguna cámara en este dispositivo. Escribe el número del código abajo.', 'error');
+      } else if (/NotReadable|in use|TrackStart/i.test(txt)) {
+        avisoEscaner('La cámara la está usando otra app. Ciérrala y vuelve a intentarlo.', 'error');
+      } else {
+        avisoEscaner('No se pudo abrir la cámara. Escribe el número del código abajo y pulsa Buscar.', 'error');
+      }
+    }
 
     async function abrirEscanerCodigo() {
       // La cámara solo se permite en páginas seguras (https:// o localhost).
@@ -741,94 +796,121 @@
         avisoEscaner('La cámara solo funciona si abres la app desde un enlace https:// (no con doble clic en el archivo). Mientras tanto, escribe el número del código abajo y pulsa Buscar.', 'error');
         return;
       }
-      if (!window.Html5Qrcode) {
-        avisoEscaner('No se pudo cargar el lector de códigos (¿sin internet?). Escribe el número del código abajo y pulsa Buscar.', 'error');
-        return;
-      }
-      if (lectorCodigo) return; // ya está abierto
+      if (lectorCodigo || controlesZXing) return; // ya está abierta
 
+      yaLeido = false;
       document.getElementById('zona-camara').classList.remove('hidden');
-      avisoEscaner('Pidiendo permiso para usar la cámara… Si el navegador pregunta, pulsa "Permitir".');
+      bloquearGestosVisor();
+      avisoEscaner('Preparando el lector… Si el navegador pregunta por la cámara, pulsa "Permitir".');
 
+      try {
+        let ZX = null;
+        try { ZX = await cargarZXing(); } catch (_) { ZX = null; }
+
+        if (ZX) await iniciarZXing(ZX);
+        else if (window.Html5Qrcode) await iniciarHtml5();
+        else {
+          await cerrarEscanerCodigo();
+          avisoEscaner('No se pudo cargar el lector de códigos (¿sin internet?). Escribe el número del código abajo y pulsa Buscar.', 'error');
+          return;
+        }
+
+        avisoEscaner('Apunta al código de barras en horizontal, a unos 10–15 cm.');
+        clearTimeout(consejoCamara);
+        consejoCamara = setTimeout(() => {
+          if (lectorCodigo || controlesZXing) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. También puedes escribir el número abajo.');
+        }, 10000);
+      } catch (e) {
+        await cerrarEscanerCodigo();
+        avisoErrorCamara(e);
+      }
+    }
+
+    // Lector ZXing: crea un <video> dentro de #lector y analiza la imagen continuamente.
+    async function iniciarZXing(ZX) {
+      const visor = document.getElementById('lector');
+      visor.innerHTML = '<video id="video-lector" playsinline muted autoplay ' +
+        'style="width:100%;height:100%;min-height:300px;object-fit:cover;display:block;"></video>';
+      const video = document.getElementById('video-lector');
+
+      // Formatos que puede leer y "esfuérzate más" (TRY_HARDER) para códigos difíciles.
+      let pistas;
+      const L = window.ZXing;
+      if (L && L.DecodeHintType && L.BarcodeFormat) {
+        const B = L.BarcodeFormat;
+        pistas = new Map();
+        pistas.set(L.DecodeHintType.POSSIBLE_FORMATS,
+          [B.EAN_13, B.EAN_8, B.UPC_A, B.UPC_E, B.CODE_128, B.CODE_39, B.ITF, B.CODABAR].filter(f => f !== undefined));
+        pistas.set(L.DecodeHintType.TRY_HARDER, true);
+      }
+
+      const lector = new ZX.BrowserMultiFormatReader(pistas, { delayBetweenScanAttempts: 80 });
+      // Cámara trasera, sin forzar resolución: el móvil elige la suya.
+      controlesZXing = await lector.decodeFromConstraints(
+        { video: { facingMode: 'environment' }, audio: false },
+        video,
+        resultado => { if (resultado) alLeerCodigo(resultado.getText()); }
+      );
+
+      // Si el móvil lo admite, pedimos enfoque continuo (si no, no pasa nada).
+      try {
+        const pista = video.srcObject && video.srcObject.getVideoTracks()[0];
+        const capacidades = pista && pista.getCapabilities ? pista.getCapabilities() : null;
+        if (capacidades && Array.isArray(capacidades.focusMode) && capacidades.focusMode.includes('continuous')) {
+          await pista.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        }
+      } catch (_) { /* no pasa nada */ }
+    }
+
+    // Lector de respaldo: html5-qrcode (por si ZXing no se pudo descargar).
+    async function iniciarHtml5() {
       const F = window.Html5QrcodeSupportedFormats;
-      // useBarCodeDetectorIfSupported: false -> usamos el decodificador de la propia librería
-      // (ZXing) en lugar del lector nativo del navegador, que en algunos móviles enfoca pero no lee.
       const opciones = { verbose: false, experimentalFeatures: { useBarCodeDetectorIfSupported: false } };
-      // Formatos que puede leer: los de supermercado (EAN/UPC) y otros habituales
-      // (CODE_128, CODE_39, ITF, CODABAR). Si la librería no trae la lista, lee todos.
       if (F) {
         opciones.formatsToSupport = ['EAN_13', 'EAN_8', 'UPC_A', 'UPC_E', 'CODE_128', 'CODE_39', 'ITF', 'CODABAR']
           .map(nombre => F[nombre])
           .filter(valor => valor !== undefined);
       }
-
       lectorCodigo = new Html5Qrcode('lector', opciones);
-
-      // Sin recuadro (qrbox): intenta leer en TODO el visor, así no se cortan los extremos del código.
-      // fps: 15 = 15 intentos por segundo. disableFlip: no hace falta probar la imagen en espejo.
-      const configuracion = { fps: 15, disableFlip: true };
-
-      let yaLeido = false;                       // evita leer el mismo código dos veces seguidas
-      const alLeer = async codigo => {           // se llama al detectar un código
-        if (yaLeido) return;
-        yaLeido = true;
-        await cerrarEscanerCodigo();
-        if (navigator.vibrate) navigator.vibrate(80);
-        document.getElementById('codigo-input').value = codigo;
-        buscarCodigo(codigo);
-      };
-      const sinCodigo = () => { /* aún no ve ningún código: no hacemos nada */ };
-
+      // Sin recuadro: lee en todo el visor. 15 intentos por segundo, sin probar la imagen en espejo.
+      await lectorCodigo.start({ facingMode: 'environment' }, { fps: 15, disableFlip: true },
+        codigo => alLeerCodigo(codigo), () => {});
       try {
-        // Cámara trasera, sin forzar resolución: el móvil elige la suya.
-        await lectorCodigo.start({ facingMode: 'environment' }, configuracion, alLeer, sinCodigo);
-
-        // Si el móvil lo admite, pedimos enfoque continuo (si no, no pasa nada).
-        try {
-          const capacidades = lectorCodigo.getRunningTrackCapabilities();
-          if (capacidades && Array.isArray(capacidades.focusMode) && capacidades.focusMode.includes('continuous')) {
-            await lectorCodigo.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] });
-          }
-        } catch (_) { /* este móvil no permite cambiar el enfoque: no pasa nada */ }
-
-        avisoEscaner('Apunta al código de barras en horizontal, a unos 10–15 cm. Se lee en toda la imagen.');
-
-        // Si en 10 segundos no lo ha leído, damos un consejo (sin cerrar la cámara).
-        clearTimeout(consejoCamara);
-        consejoCamara = setTimeout(() => {
-          if (lectorCodigo) avisoEscaner('¿No lo lee? Aleja un poco el móvil (que el código no ocupe toda la pantalla), evita reflejos y mantén el pulso. También puedes escribir el número abajo.');
-        }, 10000);
-
-        // Bloquea gestos del dedo sobre el visor (deslizar, pellizcar, doble toque).
-        const visor = document.getElementById('lector');
-        if (!visor.dataset.sinGestos) {
-          ['touchstart', 'touchmove', 'gesturestart', 'dblclick', 'contextmenu'].forEach(evento =>
-            visor.addEventListener(evento, ev => { if (ev.cancelable) ev.preventDefault(); }, { passive: false }));
-          visor.dataset.sinGestos = '1';
+        const capacidades = lectorCodigo.getRunningTrackCapabilities();
+        if (capacidades && Array.isArray(capacidades.focusMode) && capacidades.focusMode.includes('continuous')) {
+          await lectorCodigo.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] });
         }
-      } catch (e) {
-        const txt = String(e && (e.name || e.message || e));
-        await cerrarEscanerCodigo();
-        if (/NotAllowed|Permission/i.test(txt)) {
-          avisoEscaner('No hay permiso para usar la cámara. Actívalo en los ajustes del navegador (icono del candado junto a la dirección) y vuelve a intentarlo.', 'error');
-        } else if (/NotFound|no camera|Requested device not found/i.test(txt)) {
-          avisoEscaner('No se ha encontrado ninguna cámara en este dispositivo. Escribe el número del código abajo.', 'error');
-        } else if (/NotReadable|in use/i.test(txt)) {
-          avisoEscaner('La cámara la está usando otra app. Ciérrala y vuelve a intentarlo.', 'error');
-        } else {
-          avisoEscaner('No se pudo abrir la cámara. Escribe el número del código abajo y pulsa Buscar.', 'error');
-        }
-      }
+      } catch (_) { /* no pasa nada */ }
+    }
+
+    // Bloquea gestos del dedo sobre el visor (deslizar, pellizcar, doble toque, mantener pulsado).
+    function bloquearGestosVisor() {
+      const visor = document.getElementById('lector');
+      if (visor.dataset.sinGestos) return;
+      ['touchstart', 'touchmove', 'gesturestart', 'dblclick', 'contextmenu'].forEach(evento =>
+        visor.addEventListener(evento, ev => { if (ev.cancelable) ev.preventDefault(); }, { passive: false }));
+      visor.dataset.sinGestos = '1';
     }
 
     async function cerrarEscanerCodigo() {
       clearTimeout(consejoCamara);
+      // Parar ZXing (y apagar la cámara)
+      const controles = controlesZXing;
+      controlesZXing = null;
+      if (controles) { try { controles.stop(); } catch (_) { /* ya estaba parado */ } }
+      const video = document.getElementById('video-lector');
+      if (video && video.srcObject) {
+        try { video.srcObject.getTracks().forEach(t => t.stop()); } catch (_) { /* nada */ }
+        video.srcObject = null;
+      }
+      // Parar html5-qrcode (si se usó el respaldo)
       const lector = lectorCodigo;
       lectorCodigo = null;
       if (lector) {
-        try { if (lector.isScanning) await lector.stop(); } catch (e) { /* ya estaba parada */ }
-        try { lector.clear(); } catch (e) { /* nada */ }
+        try { if (lector.isScanning) await lector.stop(); } catch (_) { /* ya estaba parada */ }
+        try { lector.clear(); } catch (_) { /* nada */ }
       }
+      document.getElementById('lector').innerHTML = '';
       document.getElementById('zona-camara').classList.add('hidden');
     }
 
@@ -849,7 +931,7 @@
         return;
       }
 
-      avisoEscaner('Buscando el producto en Open Food Facts…');
+      avisoEscaner(`Código ${codigo}: buscando el producto en Open Food Facts…`);
       try {
         const datos = await pedirOFF(`/api/v2/product/${codigo}.json` +
           '?fields=code,product_name,product_name_es,generic_name,brands,nutriments');
