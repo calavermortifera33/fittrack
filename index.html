@@ -193,6 +193,14 @@
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     html body section details > summary { padding-top: 2px; padding-bottom: 2px; }
+    /* Entreno: desplegables en 2 columnas; el abierto ocupa todo el ancho */
+    html body #desplegables-entreno { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 0.375rem; }
+    html body #desplegables-entreno > details { min-width: 0; padding-top: 0.2rem; padding-bottom: 0.2rem; }
+    html body #desplegables-entreno > details[open] { grid-column: 1 / -1; }
+    html body #desplegables-entreno > details:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    html body #desplegables-entreno > details > summary {
+      font-size: 11px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     /* Dentro de los desplegables, los bloques no repiten fondo (el velo ya lo pone el desplegable) */
     html body #bloque-escaner, html body #que-como-ahora, html body #radar-constancia, html body #combustible-rendimiento {
       background: transparent; box-shadow: none; border-color: transparent;
@@ -555,6 +563,8 @@
     </div>
 
     <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
+    <!-- NUEVO: desplegables en 2 columnas mientras están cerrados; el que abras pasa a ancho completo -->
+    <div id="desplegables-entreno" class="grid grid-cols-2 gap-1.5">
     <!-- NUEVO: bloques secundarios recogidos en desplegables (cerrados por defecto) -->
     <details id="desplegable-sensacion" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
       <summary id="sensacion-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">🙂 ¿Cómo te sientes hoy?</summary>
@@ -569,7 +579,7 @@
     </div>
     </details>
     <details id="desplegable-info" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="cursor-pointer text-xs text-slate-200 font-semibold">ℹ️ Rango y cómo progresa este ejercicio</summary>
+      <summary class="cursor-pointer text-xs text-slate-200 font-semibold">ℹ️ Rango y progresión</summary>
     <p id="info-modalidad" class="text-[11px] text-slate-400 pt-1 pb-0.5"></p>
     </details>
     <details id="desplegable-ajustes" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
@@ -604,7 +614,7 @@
     <!-- NUEVO: IA DE POSTURA Y REPETICIONES (opcional). No carga cámara ni IA hasta que lo abres.
          Todo se analiza en tu móvil: el vídeo no sale de él. -->
     <details id="panel-ia" ontoggle="if (!this.open) pararIA()" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
-      <summary class="cursor-pointer text-xs text-emerald-300 font-semibold">🤖 IA de postura y repeticiones (beta)</summary>
+      <summary class="cursor-pointer text-xs text-emerald-300 font-semibold">🤖 IA de postura (beta)</summary>
       <div class="space-y-1.5 pt-2">
         <div class="flex gap-1.5">
           <select id="ia-ejercicio" onchange="reiniciarIA()" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm">
@@ -639,7 +649,7 @@
         </div>
       </div>
     </details>
-
+    </div>
     <div id="lista-entrenos" class="space-y-2 pt-1"></div>
   </section>
 
@@ -3350,7 +3360,7 @@
         try {
           const resumen = document.getElementById('combustible-resumen');
           const kcalDia = Math.round(state.foods.filter(f => f.date === fecha).reduce((s, f) => s + f.kcal, 0));
-          if (resumen) resumen.textContent = `⛽ Combustible${esHoy ? '' : ' (' + cuando + ')'}: ${ml} ml · ${kcalDia} kcal`;
+          if (resumen) resumen.textContent = `⛽ ${ml} ml · ${kcalDia} kcal${esHoy ? '' : ' (' + cuando + ')'}`;
         } catch (e) { /* nada */ }
         const pctAgua = Math.round(ml / meta * 100);
         if (pctAgua >= 100) caja.appendChild(linea(`💧 ${ml}/${meta} ml · ✓ Bien hidratado.`, 'text-emerald-400'));
@@ -3437,7 +3447,7 @@
         // NUEVO: resumen en el desplegable (ej. "⚡ Hoy: A tope")
         const resumen = document.getElementById('sensacion-resumen');
         const boton = document.querySelector(`#sensacion-dia [data-sensacion="${actual}"]`);
-        if (resumen && boton) resumen.textContent = `${fechaSeleccionada() === hoy() ? 'Hoy' : fechaBonita(fechaSeleccionada())}: ${boton.textContent.trim()} · cambiar`;
+        if (resumen && boton) resumen.textContent = `${fechaSeleccionada() === hoy() ? 'Hoy' : fechaBonita(fechaSeleccionada())}: ${boton.textContent.trim()}`;
       } catch (e) { /* nada */ }
     }
 
@@ -3775,7 +3785,7 @@
           const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p); return p;
         };
         const resumen = document.getElementById('radar-resumen');
-        if (resumen) resumen.textContent = `📡 Radar: ${entrenados.length}/7 días · ${series} series` + (racha > 1 ? ` · racha ${racha}` : '');
+        if (resumen) resumen.textContent = `📡 ${entrenados.length}/7 días · ${series} series` + (racha > 1 ? ` · racha ${racha}` : '');
         linea('Últimos 7 días:', 'text-slate-500');
 
         // Fila de 7 puntitos con la inicial del día
