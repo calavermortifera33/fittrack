@@ -53,6 +53,94 @@
     }
     /* Los textos largos se parten en vez de salirse de la pantalla. */
     #seccion-nutri, #seccion-entreno { overflow-wrap: anywhere; }
+    /* =========================================================
+       ESTÉTICA CRISTAL (tipo Dock de macOS): oscuro translúcido,
+       desenfoque, bordes finos y pocos colores.
+       "html body" hace que estas reglas ganen a las clases de Tailwind.
+       ========================================================= */
+    html body.bg-slate-950 {
+      background-color: #0a0f1c;
+      background-image:
+        radial-gradient(900px 520px at 0% -5%, rgba(125, 211, 252, 0.13), transparent 60%),
+        radial-gradient(700px 480px at 105% 25%, rgba(167, 243, 208, 0.09), transparent 60%),
+        radial-gradient(800px 600px at 40% 110%, rgba(148, 163, 184, 0.14), transparent 60%);
+      background-attachment: fixed;
+    }
+    /* Tarjetas principales: cristal esmerilado */
+    html body #seccion-nutri, html body #seccion-entreno,
+    html body > details, html body #dialogo > div {
+      background: rgba(15, 23, 42, 0.58);
+      -webkit-backdrop-filter: blur(16px) saturate(140%);
+      backdrop-filter: blur(16px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    /* Barra de pestañas: tira de cristal como el Dock */
+    html body #barra-pestanas {
+      background: rgba(10, 15, 28, 0.55);
+      -webkit-backdrop-filter: blur(16px) saturate(140%);
+      backdrop-filter: blur(16px) saturate(140%);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    /* Paneles dentro de las tarjetas: un velo claro muy suave (sin más desenfoque, va más fluido) */
+    html body #bloque-escaner, html body #bloque-agua, html body #descanso,
+    html body section details, html body .bg-slate-800\/40, html body .bg-slate-800\/60 {
+      background: rgba(255, 255, 255, 0.045);
+      border-color: rgba(255, 255, 255, 0.10);
+    }
+    /* Filas de listas (comidas, entrenos, resultados) */
+    html body .bg-slate-800\/70, html body .bg-slate-800\/80 {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+    /* Campos de texto y desplegables */
+    html body input:not([type="file"]), html body select {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.12);
+      color: #f1f5f9;
+    }
+    html body input:focus, html body select:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.35);
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
+    }
+    html body select option, html body select optgroup { background: #0f172a; color: #f1f5f9; }
+    html body input::placeholder { color: rgba(226, 232, 240, 0.45); }
+
+    /* Botones normales: superficie de cristal clara, bien separada del fondo */
+    html body button.bg-slate-800, html body button.bg-slate-700, html body label.bg-slate-800, html body label.bg-slate-700,
+    html body button.bg-emerald-700 {
+      background: rgba(255, 255, 255, 0.11);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #f1f5f9;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+    html body button.bg-slate-800:hover, html body button.bg-slate-700:hover, html body label.bg-slate-800:hover,
+    html body label.bg-slate-700:hover, html body button.bg-emerald-700:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+    /* Botones principales y estado activo: acento sobrio (blanco perla), máximo contraste */
+    html body .bg-sky-500, html body .bg-emerald-500 {
+      background: rgba(241, 245, 249, 0.92);
+      color: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+    }
+    html body .bg-sky-500:hover, html body .bg-emerald-500:hover { background: #ffffff; }
+    html body button:active, html body label.boton:active { transform: scale(0.97); }
+    html body button, html body label.boton { transition: background-color .15s, transform .1s; }
+    /* Botón Borrar del diálogo: rojo, pero apagado */
+    html body .bg-rose-500 { background: rgba(244, 63, 94, 0.80); color: #fff; }
+
+    /* Menos saturación en textos de color y barras */
+    html body .text-sky-300, html body .text-sky-400 { color: #c7e3f4; }
+    html body .text-emerald-300, html body .text-emerald-400 { color: #bfe8d6; }
+    html body .text-rose-400 { color: #f3a3b2; }
+    html body .text-amber-300, html body .text-amber-400 { color: #ecd9a4; }
+    html body #barras-macros, html body #agua-barra, html body #descanso-barra { filter: saturate(0.6) brightness(1.05); }
+    html body .border-emerald-400\/80, html body .border-emerald-400\/70 { border-color: rgba(255, 255, 255, 0.55); }
+    html body .border-emerald-500 { border-color: rgba(255, 255, 255, 0.5); }
+    html body .border-sky-900 { border-color: rgba(255, 255, 255, 0.14); }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen min-h-[100svh] w-full max-w-md mx-auto px-3 sm:px-4 py-3">
