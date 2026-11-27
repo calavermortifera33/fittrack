@@ -271,6 +271,8 @@
     <div id="barras-macros" class="grid grid-cols-2 gap-x-3 gap-y-1"></div>
     <!-- NUEVO: lo que te queda para llegar a tus objetivos del día -->
     <p id="margen-dia" class="text-[11px] leading-tight"></p>
+    <!-- NUEVO: ¿QUÉ COMO AHORA? Sugerencias según lo que te falta hoy (tus alimentos, sin internet) -->
+    <div id="que-como-ahora" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 space-y-1"></div>
 
     <!-- NUEVO: MEDIDOR DE AGUA del día elegido. Suma de un toque con los botones rápidos. -->
     <div id="bloque-agua" class="bg-sky-950/40 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
@@ -351,6 +353,21 @@
       <button id="btn-repetir-ayer" onclick="repetirAyer()" class="mini h-8 px-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sky-300 rounded-lg text-xs whitespace-nowrap">↻ Repetir ayer</button>
     </div>
     <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
+
+    <!-- NUEVO: COMIDAS RÁPIDAS / COMBOS. Guarda las comidas de un día y repítelas de un toque. -->
+    <details id="combos-rapidos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
+      <summary id="combos-titulo" class="cursor-pointer text-xs text-sky-300 font-semibold">⚡ Comidas rápidas (combos)</summary>
+      <div class="space-y-1.5 pt-2">
+        <ul id="lista-combos" class="space-y-1 text-[11px]"></ul>
+        <div class="flex gap-1.5">
+          <input id="combo-nombre" type="text" maxlength="40" placeholder="Nombre (ej. Desayuno avena + whey)"
+            onkeydown="if (event.key === 'Enter') guardarComboDelDia()"
+            class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs" />
+          <button onclick="guardarComboDelDia()" class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl text-xs whitespace-nowrap">💾 Guardar el día</button>
+        </div>
+        <p id="aviso-combo" class="text-[11px] text-slate-400 empty:hidden"></p>
+      </div>
+    </details>
 
     <!-- NUEVO: crear tus propios alimentos. Copia los datos "por 100 g" de la etiqueta. -->
     <details id="panel-alimentos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1.5">
@@ -2477,6 +2494,8 @@
 
       // NUEVO: lo que queda del día y botón «Repetir ayer»
       pintarMargenDia(totals);
+      pintarQueComoAhora();   // NUEVO
+      pintarCombos();         // NUEVO
       const deAyer = state.foods.filter(f => f.date === diaAnterior(fecha)).length;
       document.getElementById('fila-repetir').classList.toggle('hidden', !deAyer);
       document.getElementById('btn-repetir-ayer').textContent = `↻ Repetir ayer (${deAyer})`;
@@ -3337,6 +3356,229 @@
       } catch (e) { return progBase; }
     }
 
+    // ---------- NUEVO: ¿QUÉ COMO AHORA? ----------
+    // Mira lo que te falta hoy y propone 1–2 opciones con tus alimentos (básicos y tuyos, sin internet).
+
+    // Una comida con la misma estructura que addFood, calculada desde un alimento y unos gramos.
+    function comidaDesde(key, grams, fecha) {
+      const base = todosLosAlimentos()[key];
+      if (!base || !(grams > 0)) return null;
+      const factor = grams / 100;
+      return {
+        id: nuevoId(), date: fecha, name: base.name, grams,
+        kcal: Math.round(base.kcal * factor),
+        p: +(base.p * factor).toFixed(1), c: +(base.c * factor).toFixed(1), f: +(base.f * factor).toFixed(1)
+      };
+    }
+
+    // Ración máxima razonable (g) según el tipo de alimento.
+    function racionMaxima(key, item) {
+      if (key === 'whey') return 30;
+      if (key === 'avena') return 60;
+      if (key === 'corn_flakes') return 40;
+      if (key === 'tortitas_arroz') return 30;
+      if (/^pan_/.test(key)) return 80;
+      if (key === 'huevo') return 120;            // ~2 huevos
+      if (key === 'clara') return 200;
+      if (/leche|kefir/.test(key)) return 250;
+      const porCategoria = {
+        'Carnes y huevos': 180, 'Pescados': 180, 'Lácteos': 200, 'Legumbres': 250,
+        'Cereales y tubérculos': 250, 'Frutas': 200, 'Verduras': 300, 'Frutos secos y grasas': 30
+      };
+      return porCategoria[item.cat] || 150;       // tus alimentos: 150 g
+    }
+    const redondear5 = g => Math.max(5, Math.round(g / 5) * 5);
+
+    // Alimentos que tiene sentido sugerir "listos para comer" (sin crudos, secos, harinas ni aceites).
+    function alimentosSugeribles() {
+      const usados = {};
+      state.foods.forEach(f => { usados[f.name] = (usados[f.name] || 0) + 1; });
+      return Object.entries(todosLosAlimentos())
+        .filter(([key, it]) => it && it.kcal > 0 && !/crud|seca|seco|harina|aceite|mantequilla/i.test(it.name) &&
+          !['centeno', 'espelta', 'trigo_sarraceno', 'mijo', 'cebada', 'ajo', 'hummus'].includes(key))
+        .map(([key, it]) => ({ key, it, mio: key.startsWith('mio_'), veces: usados[it.name] || 0 }));
+    }
+
+    // Gramos para cubrir una parte de lo que falta, sin pasarse de kcal ni de la ración razonable.
+    function gramosPara(item, key, objetivo, campo, kcalMax) {
+      const porGramo = item[campo] / 100;
+      let g = porGramo > 0 ? objetivo / porGramo : racionMaxima(key, item);
+      g = Math.min(g, racionMaxima(key, item));
+      if (kcalMax > 0) g = Math.min(g, kcalMax / (item.kcal / 100));
+      return redondear5(Math.max(g, key === 'whey' ? 20 : 30));
+    }
+
+    let sugerenciasActuales = [];
+
+    function calcularSugerencias(fecha) {
+      const t = state.foods.filter(f => f.date === fecha)
+        .reduce((a, f) => ({ kcal: a.kcal + f.kcal, p: a.p + f.p, c: a.c + f.c, f: a.f + f.f }), { kcal: 0, p: 0, c: 0, f: 0 });
+      const r = { kcal: TARGETS.kcal - t.kcal, p: TARGETS.p - t.p, c: TARGETS.c - t.c, f: TARGETS.f - t.f };
+      const entrenado = state.workouts.some(w => w.date === fecha);
+      const lista = alimentosSugeribles();
+      const extra = x => (x.mio ? 0.15 : 0) + Math.min(0.2, x.veces * 0.03);   // prioriza tuyos y habituales
+      const densidadP = it => it.p * 4 / it.kcal;                               // % de kcal que es proteína
+      // Franja del día (solo si miras hoy): por la mañana, más lácteos, huevos, avena y fruta.
+      const manana = fecha === hoy() && new Date().getHours() < 12;
+      const HABITUALES = ['pollo', 'pavo', 'huevo', 'yogur_griego', 'queso_batido', 'skyr', 'atun_natural', 'merluza', 'salmon', 'ternera', 'whey', 'lomo_cerdo', 'clara'];
+      const puntoProteico = x => densidadP(x.it) + extra(x) + (HABITUALES.includes(x.key) ? 0.2 : 0) +
+        (manana ? (['Lácteos'].includes(x.it.cat) || /huevo|clara|whey/.test(x.key) ? 0.25 : 0)
+                : (['Carnes y huevos', 'Pescados'].includes(x.it.cat) ? 0.12 : 0));
+      const puntoCarbo = x => x.it.c / x.it.kcal + extra(x) +
+        ({ 'Cereales y tubérculos': 0.3, 'Legumbres': 0.15, 'Frutas': manana ? 0.3 : 0.05 }[x.it.cat] || 0) +
+        (manana && /avena|pan_/.test(x.key) ? 0.2 : 0) +
+        (!manana && ['arroz', 'arroz_integral', 'arroz_basmati', 'patata_cocida', 'pasta_cocida', 'boniato', 'quinoa_cocida', 'cuscus_cocido'].includes(x.key) ? 0.2 : 0);
+      // Dos opciones de categorías distintas, para que haya variedad.
+      const variados = arr => {
+        const vistos = new Set();
+        return arr.filter(x => { const c = x.it.cat || 'mios'; if (vistos.has(c)) return false; vistos.add(c); return true; });
+      };
+
+      if (r.kcal <= 60) {
+        const pasado = Math.round(-r.kcal);
+        return { modo: 'cubierto', r, entrenado, opciones: [],
+          texto: pasado > 0 ? `Ya has cubierto tus kcal (te pasas ${pasado}). Si tienes hambre, algo muy ligero: verdura o una infusión.` : '¡Clavado! Tus kcal del día están cubiertas.' };
+      }
+      const ligero = r.kcal < 300;
+      const tope = r.kcal * (ligero ? 0.9 : 0.55);
+      const proteicos = variados(lista.filter(x => densidadP(x.it) >= 0.3)
+        .sort((a, b) => (puntoProteico(b) - (ligero ? b.it.kcal / 1000 : 0)) - (puntoProteico(a) - (ligero ? a.it.kcal / 1000 : 0))));
+      const carbos = variados(lista.filter(x => x.it.c * 4 / x.it.kcal >= 0.55 && x.it.c >= 10)
+        .sort((a, b) => puntoCarbo(b) - puntoCarbo(a)));
+      const opciones = [];
+      const item = (x, campo, objetivo, kcalMax) => {
+        const g = gramosPara(x.it, x.key, objetivo, campo, kcalMax);
+        return { key: x.key, name: x.it.name, grams: g, kcal: Math.round(x.it.kcal * g / 100), p: Math.round(x.it.p * g / 10) / 10 };
+      };
+      let modo;
+      if (entrenado && r.p > 15 && r.c > 25 && !ligero) {
+        modo = 'recuperacion';
+        // Recuperación: proteína + carbohidrato en el mismo plato (2 combinaciones distintas).
+        for (let i = 0; i < 2 && proteicos[i] && carbos[i]; i++) {
+          const pr = item(proteicos[i], 'p', Math.min(r.p * 0.5, 40), tope * 0.5);
+          const cb = item(carbos[i], 'c', Math.min(r.c * 0.4, 70), tope * 0.5);
+          opciones.push([pr, cb]);
+        }
+      } else if (r.p >= 20 && r.p * 4 / r.kcal >= 0.25) {
+        modo = 'proteina';
+        proteicos.slice(0, 2).forEach(x => opciones.push([item(x, 'p', Math.min(r.p * 0.5, 40), tope)]));
+      } else if (ligero) {
+        modo = 'ligero';
+        lista.filter(x => x.it.kcal <= 120).sort((a, b) => (densidadP(b.it) + extra(b)) - (densidadP(a.it) + extra(a)))
+          .slice(0, 2).forEach(x => opciones.push([item(x, 'kcal', r.kcal * 0.6, tope)]));
+      } else {
+        modo = 'equilibrado';
+        // Te falta de todo un poco: una opción proteica y otra de energía (carbos).
+        if (proteicos[0]) opciones.push([item(proteicos[0], 'p', Math.min(r.p * 0.4, 35), tope)]);
+        if (carbos[0]) opciones.push([item(carbos[0], 'c', Math.min(r.c * 0.35, 60), tope)]);
+      }
+      const textos = {
+        recuperacion: '💪 Ya entrenaste: toca recuperar con proteína + carbos.',
+        proteina: `🥩 Te faltan ${Math.round(r.p)} g de proteína: prioriza una fuente proteica.`,
+        ligero: `🍃 Te quedan solo ${Math.round(r.kcal)} kcal: algo ligero.`,
+        equilibrado: `Te quedan ${Math.round(r.kcal)} kcal · P ${Math.max(0, Math.round(r.p))} g · C ${Math.max(0, Math.round(r.c))} g.`
+      };
+      return { modo, r, entrenado, opciones, texto: textos[modo] };
+    }
+
+    function pintarQueComoAhora() {
+      const caja = document.getElementById('que-como-ahora');
+      if (!caja) return;
+      try {
+        const s = calcularSugerencias(fechaSeleccionada());
+        sugerenciasActuales = s.opciones;
+        const filas = s.opciones.map((items, i) => {
+          const kcal = items.reduce((a, x) => a + x.kcal, 0), p = items.reduce((a, x) => a + x.p, 0);
+          const nombre = items.map(x => `${escaparHTML(x.name)} ${x.grams} g`).join(' + ');
+          return `<li class="flex items-center justify-between gap-2 bg-slate-800/70 rounded-lg px-2 py-1">
+            <span class="min-w-0"><span class="text-slate-100">${nombre}</span>
+              <span class="text-slate-500"> · ${kcal} kcal · P ${Math.round(p)} g</span></span>
+            <button onclick="anadirSugerencia(${i})" title="Añadir a este día"
+              class="mini shrink-0 h-8 px-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-xs">＋</button>
+          </li>`;
+        }).join('');
+        caja.innerHTML = `<p class="text-xs font-semibold text-slate-200">🍽️ ¿Qué como ahora?</p>
+          <p class="text-[11px] text-slate-400">${escaparHTML(s.texto)}</p>
+          ${filas ? `<ul class="space-y-1 text-[11px]">${filas}</ul>` : ''}`;
+      } catch (e) {
+        caja.textContent = '🍽️ No se pudo calcular una sugerencia ahora mismo.';
+      }
+    }
+
+    function anadirSugerencia(i) {
+      const items = sugerenciasActuales[i];
+      if (!items) return;
+      const fecha = fechaSeleccionada();
+      items.forEach(x => { const c = comidaDesde(x.key, x.grams, fecha); if (c) state.foods.push(c); });
+      if (navigator.vibrate) navigator.vibrate(25);
+      saveState();
+      render();
+    }
+
+    // ---------- NUEVO: COMIDAS RÁPIDAS / COMBOS ----------
+    // ft4_combos: [{ id, name, items: [{ name, grams, kcal, p, c, f }] }]
+    function leerCombos() {
+      try { const c = JSON.parse(localStorage.getItem('ft4_combos') || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; }
+    }
+    function guardarCombos(lista) { guardar('ft4_combos', lista); }
+
+    function guardarComboDelDia() {
+      const input = document.getElementById('combo-nombre');
+      const aviso = document.getElementById('aviso-combo');
+      const comidas = state.foods.filter(f => f.date === fechaSeleccionada());
+      if (!comidas.length) { aviso.textContent = 'Primero apunta las comidas de este día; luego guárdalas como combo.'; return; }
+      const nombre = (input.value || '').trim().slice(0, 40) || `Combo ${fechaBonita(fechaSeleccionada())}`;
+      const lista = leerCombos();
+      lista.push({
+        id: nuevoId(), name: nombre,
+        items: comidas.map(({ name, grams, kcal, p, c, f }) => ({ name, grams, kcal, p, c, f }))
+      });
+      guardarCombos(lista);
+      input.value = '';
+      aviso.textContent = `✓ «${nombre}» guardado con ${comidas.length} alimento${comidas.length > 1 ? 's' : ''}.`;
+      pintarCombos();
+    }
+
+    function aplicarCombo(id) {
+      const combo = leerCombos().find(c => c.id === id);
+      if (!combo) return;
+      const fecha = fechaSeleccionada();
+      combo.items.forEach(x => state.foods.push({ ...x, id: nuevoId(), date: fecha }));
+      if (navigator.vibrate) navigator.vibrate(30);
+      saveState();
+      render();
+      document.getElementById('aviso-combo').textContent = `✓ «${combo.name}» añadido a este día.`;
+    }
+
+    async function borrarCombo(id) {
+      const combo = leerCombos().find(c => c.id === id);
+      if (!combo) return;
+      if (!await confirmar(`¿Borrar el combo «${combo.name}»?`)) return;
+      guardarCombos(leerCombos().filter(c => c.id !== id));
+      pintarCombos();
+    }
+
+    function pintarCombos() {
+      const ul = document.getElementById('lista-combos');
+      if (!ul) return;
+      try {
+        const lista = leerCombos();
+        document.getElementById('combos-titulo').textContent = `⚡ Comidas rápidas (combos)${lista.length ? ` · ${lista.length}` : ''}`;
+        ul.innerHTML = lista.length ? lista.map(c => {
+          const kcal = c.items.reduce((a, x) => a + (x.kcal || 0), 0);
+          const p = c.items.reduce((a, x) => a + (x.p || 0), 0);
+          return `<li class="flex items-center justify-between gap-2 bg-slate-800/70 rounded-lg px-2 py-1">
+            <span class="min-w-0"><span class="text-slate-100">${escaparHTML(c.name)}</span>
+              <span class="text-slate-500"> · ${c.items.length} alim. · ${Math.round(kcal)} kcal · P ${Math.round(p)} g</span></span>
+            <span class="flex items-center gap-2 shrink-0">
+              <button onclick="aplicarCombo('${c.id}')" title="Añadir a este día" class="mini h-8 px-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-xs">＋ Añadir</button>
+              <button onclick="borrarCombo('${c.id}')" title="Borrar combo" class="mini text-slate-500 hover:text-rose-400 text-base leading-none p-2 -m-1">✕</button>
+            </span>
+          </li>`;
+        }).join('') : '<li class="text-slate-500">Aún no tienes combos. Apunta una comida típica y guárdala aquí.</li>';
+      } catch (e) { ul.textContent = 'No se pudieron cargar los combos.'; }
+    }
+
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
     // Se guarda por día: { "2026-11-27": 750, ... } y una meta diaria (2000 ml por defecto).
     const META_AGUA_DEFECTO = 2000;
@@ -3420,7 +3662,7 @@
     render();
 
     // ---------- NUEVO: COPIA DE SEGURIDAD ----------
-    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName', 'ft4_voiceEnabled', 'ft4_feeling'];
+    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName', 'ft4_voiceEnabled', 'ft4_feeling', 'ft4_combos'];
 
     function exportarDatos() {
       const copia = { app: 'FitTrack', version: 1, fecha: new Date().toISOString(), datos: {} };
@@ -3451,7 +3693,7 @@
         if (!await confirmar('¿Sustituir tus datos actuales por los de esta copia?')) return;
         CLAVES_DATOS.forEach(clave => {
           // Las copias antiguas no traen el agua: en ese caso dejamos la que ya tienes.
-          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName' || clave === 'ft4_voiceEnabled' || clave === 'ft4_feeling') && !(clave in copia.datos)) return;
+          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName' || clave === 'ft4_voiceEnabled' || clave === 'ft4_feeling' || clave === 'ft4_combos') && !(clave in copia.datos)) return;
           const valor = copia.datos[clave];
           if (valor === null || valor === undefined) localStorage.removeItem(clave);
           else localStorage.setItem(clave, JSON.stringify(valor));
