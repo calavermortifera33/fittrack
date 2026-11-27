@@ -167,10 +167,27 @@
           <input id="foto-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoEtiqueta(this)" />
         </label>
         <!-- NUEVO: foto a una fruta o verdura suelta: la app intenta reconocerla (en tu móvil, sin servidores) -->
-        <label class="boton text-center bg-emerald-700 hover:bg-emerald-600 font-semibold py-1.5 rounded-xl text-xs cursor-pointer whitespace-nowrap" title="Foto alimento fresco (fruta o verdura suelta)">
+        <button onclick="abrirCamaraFresco()" class="bg-emerald-700 hover:bg-emerald-600 font-semibold py-1.5 rounded-xl text-xs whitespace-nowrap" title="Reconocer alimento fresco (fruta o verdura suelta) con la cámara">
           🥦 Fresco
-          <input id="foto-fresco-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="fotoAlimentoFresco(this)" />
-        </label>
+        </button>
+      </div>
+      <!-- Foto de un fresco: sin "capture" para que puedas hacer la foto o elegirla de la galería -->
+      <input id="foto-fresco-input" type="file" accept="image/*" class="hidden" onchange="cerrarCamaraFresco(); fotoAlimentoFresco(this)" />
+
+      <!-- NUEVO: cámara en directo para frescos. Las opciones salen encima del vídeo: toca una. -->
+      <div id="zona-fresco" class="hidden space-y-1.5">
+        <div class="relative rounded-xl overflow-hidden bg-black w-full h-[40svh] min-h-[240px] max-h-[340px]">
+          <video id="fresco-video" playsinline muted autoplay class="absolute inset-0 w-full h-full object-cover"></video>
+          <!-- Marco guía: pon el alimento dentro -->
+          <div class="pointer-events-none absolute inset-[18%] border-2 border-emerald-400/70 rounded-2xl"></div>
+          <p id="fresco-estado" class="absolute top-1.5 inset-x-1.5 bg-black/60 text-slate-100 text-[11px] px-2 py-1 rounded-lg text-center"></p>
+          <div id="fresco-chips" class="absolute bottom-1.5 inset-x-1.5 flex gap-1.5 overflow-x-auto"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button onclick="usarMejorFresco()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-1.5 rounded-xl text-xs whitespace-nowrap">✓ Usar el 1º</button>
+          <label for="foto-fresco-input" class="boton text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-xs cursor-pointer whitespace-nowrap">📸 Foto</label>
+          <button onclick="cerrarCamaraFresco()" class="bg-slate-700 hover:bg-slate-600 py-1.5 rounded-xl text-xs whitespace-nowrap">Cerrar</button>
+        </div>
       </div>
 
       <!-- NUEVO: foto fija del código de barras (por si en directo no lo lee). Un solo selector de archivo, dos botones. -->
@@ -930,6 +947,7 @@
         return;
       }
       if (lectorCodigo || controlesZXing) return; // ya está abierta
+      if (fresco.corriendo) cerrarCamaraFresco();  // una cámara cada vez
 
       yaLeido = false;
       document.getElementById('zona-camara').classList.remove('hidden');
@@ -1669,7 +1687,7 @@
         lienzo.width = lienzo.height = lado;
         const ctx = lienzo.getContext('2d', { willReadFrequently: true });
         // Solo el centro (60 %), que es donde suele estar el alimento.
-        const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        const w = img.videoWidth || img.naturalWidth || img.width, h = img.videoHeight || img.naturalHeight || img.height;
         ctx.drawImage(img, w * 0.2, h * 0.2, w * 0.6, h * 0.6, 0, 0, lado, lado);
         const px = ctx.getImageData(0, 0, lado, lado).data;
         const cuenta = { rojo: 0, naranja: 0, amarillo: 0, verde: 0, morado: 0, marron: 0 };
@@ -1797,6 +1815,110 @@
         avisoEscaner('No se pudo analizar la foto. Prueba otra vez o escribe el nombre en 🔎 Filtrar alimentos.', 'error');
       }
     }
+
+    // ---------- NUEVO: CÁMARA EN DIRECTO PARA ALIMENTOS FRESCOS ----------
+    // Igual que el escáner: abre la cámara y, cada ~0,7 s, MobileNet + el color proponen alimentos.
+    // Las 3 mejores opciones salen encima del vídeo: toca una y queda elegida para poner gramos.
+    const fresco = { corriendo: false, flujo: null, temporizador: null, puntos: {}, top: [] };
+
+    async function abrirCamaraFresco() {
+      if (fresco.corriendo) return;
+      if (!window.isSecureContext || !navigator.mediaDevices) {
+        avisoEscaner('La cámara solo funciona desde el enlace https:// de la app. Usa «📸 Foto».', 'error');
+        return;
+      }
+      if (lectorCodigo || controlesZXing) await cerrarEscanerCodigo();   // una cámara cada vez
+      document.getElementById('resultados-busqueda').innerHTML = '';
+      document.getElementById('zona-fresco').classList.remove('hidden');
+      document.getElementById('fresco-chips').innerHTML = '';
+      document.getElementById('fresco-estado').textContent = promesaMobilenet ? 'Abriendo la cámara…' : 'Preparando el reconocedor (solo la 1ª vez, ~15 MB)…';
+      avisoEscaner('');
+      let modelo;
+      try { modelo = await cargarMobilenet(); }
+      catch (_) {
+        cerrarCamaraFresco();
+        avisoEscaner('No se pudo descargar el reconocedor (¿sin internet?). Escribe el nombre en 🔎 Filtrar alimentos.', 'error');
+        return;
+      }
+      try {
+        fresco.flujo = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+        });
+      } catch (e) {
+        cerrarCamaraFresco();
+        avisoErrorCamara(e);
+        return;
+      }
+      const video = document.getElementById('fresco-video');
+      video.srcObject = fresco.flujo;
+      try { await video.play(); } catch (_) { /* autoplay */ }
+      fresco.corriendo = true;
+      fresco.puntos = {};
+      fresco.top = [];
+      document.getElementById('fresco-estado').textContent = 'Apunta a UN alimento, de cerca y con buena luz…';
+
+      const vuelta = async () => {
+        if (!fresco.corriendo) return;
+        if (video.readyState >= 2 && video.videoWidth) {
+          try {
+            const predicciones = await modelo.classify(video, 5);
+            const lista = frescosDesdePredicciones(predicciones, colorDominante(video));
+            // Suavizado: mezclamos con lo de antes para que las opciones no bailen.
+            const nuevos = {};
+            Object.keys(fresco.puntos).forEach(k => { nuevos[k] = fresco.puntos[k] * 0.5; });
+            lista.forEach(({ clave, p }) => { nuevos[clave] = (nuevos[clave] || 0) + p * 0.5; });
+            Object.keys(nuevos).forEach(k => { if (nuevos[k] < 0.01) delete nuevos[k]; });
+            fresco.puntos = nuevos;
+            pintarChipsFresco();
+          } catch (_) { /* fotograma perdido */ }
+        }
+        if (fresco.corriendo) fresco.temporizador = setTimeout(vuelta, 700);
+      };
+      fresco.temporizador = setTimeout(vuelta, 300);
+    }
+
+    function pintarChipsFresco() {
+      const orden = Object.entries(fresco.puntos).sort((a, b) => b[1] - a[1]).slice(0, 3);
+      fresco.top = orden.map(([clave, p]) => ({ clave, p }));
+      const total = orden.reduce((s, [, p]) => s + p, 0) || 1;
+      document.getElementById('fresco-chips').innerHTML = orden.map(([clave, p], i) =>
+        `<button onclick="elegirFrescoVivo('${clave}')"
+          class="mini shrink-0 ${i === 0 ? 'bg-emerald-500 text-slate-950' : 'bg-black/70 text-white border border-white/30'} font-semibold text-xs px-2.5 h-9 rounded-full whitespace-nowrap">
+          ${i === 0 ? '✓ ' : ''}${escaparHTML(FOOD_DB[clave].name)} <span class="opacity-70">${Math.round(p / total * 100)}%</span>
+        </button>`).join('');
+      const estado = document.getElementById('fresco-estado');
+      if (!orden.length) estado.textContent = 'No lo reconozco aún: acércate, un solo alimento, fondo liso…';
+      else estado.textContent = `Parece: ${FOOD_DB[orden[0][0]].name}. Toca una opción para elegirla.`;
+    }
+
+    function elegirFrescoVivo(clave) {
+      opcionesFresco = fresco.top.length ? fresco.top : [{ clave, p: 1 }];
+      cerrarCamaraFresco();
+      elegirFresco(clave);
+    }
+
+    // «Usar el 1º»: elige la opción que va ganando.
+    function usarMejorFresco() {
+      if (!fresco.top.length) {
+        document.getElementById('fresco-estado').textContent = 'Aún no tengo ninguna opción: apunta al alimento un momento.';
+        return;
+      }
+      elegirFrescoVivo(fresco.top[0].clave);
+    }
+
+    function cerrarCamaraFresco() {
+      fresco.corriendo = false;
+      clearTimeout(fresco.temporizador);
+      if (fresco.flujo) fresco.flujo.getTracks().forEach(t => t.stop());
+      fresco.flujo = null;
+      const video = document.getElementById('fresco-video');
+      if (video) video.srcObject = null;
+      const zona = document.getElementById('zona-fresco');
+      if (zona) zona.classList.add('hidden');
+    }
+
+    // Si la app pasa a segundo plano, apagamos esta cámara.
+    document.addEventListener('visibilitychange', () => { if (document.hidden && fresco.corriendo) cerrarCamaraFresco(); });
 
     function cargarTesseract() {
       if (window.Tesseract) return Promise.resolve(window.Tesseract);
@@ -2631,6 +2753,7 @@
       if (cual === 'entreno' && (lectorCodigo || controlesZXing)) cerrarEscanerCodigo();
       // Y si dejas Entreno con la cámara de la IA encendida, también la apagamos.
       if (cual !== 'entreno' && ia.corriendo) pararIA();
+      if (cual === 'entreno' && fresco.corriendo) cerrarCamaraFresco();
       document.getElementById('seccion-nutri').classList.toggle('hidden', cual !== 'nutri');
       document.getElementById('seccion-entreno').classList.toggle('hidden', cual !== 'entreno');
       const base = 'py-1.5 rounded-xl text-sm font-semibold ';
