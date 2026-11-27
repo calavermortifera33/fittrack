@@ -2,7 +2,7 @@
 // para que abra rápido y funcione aunque no haya internet.
 // Cuando cambies index.html, sube este número (v1 -> v2) para que los móviles
 // descarguen la versión nueva.
-const VERSION = 'fittrack-v17';
+const VERSION = 'fittrack-v18';
 
 const ARCHIVOS_APP = [
   './',
