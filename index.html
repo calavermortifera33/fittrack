@@ -30,26 +30,26 @@
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen max-w-md mx-auto p-4" style="padding-top:max(1rem, env(safe-area-inset-top)); padding-bottom:max(1rem, env(safe-area-inset-bottom));">
-  <header class="mb-4">
-    <h1 class="text-2xl font-bold text-sky-400">FitTrack 4-en-1</h1>
+<body class="bg-slate-950 text-slate-100 min-h-screen max-w-md mx-auto p-3" style="padding-top:max(0.75rem, env(safe-area-inset-top)); padding-bottom:max(0.75rem, env(safe-area-inset-bottom));">
+  <header class="mb-2">
+    <h1 class="text-xl font-bold text-sky-400 leading-tight">FitTrack 4-en-1</h1>
     <p class="text-xs text-slate-400">1. Macros · 2. Pesas · 3. Calistenia · 4. Calistenia lastrada</p>
   </header>
 
   <!-- NUEVO: SELECTOR DE DÍA.
        Todo lo que apuntes se guarda con esta fecha. Por defecto es hoy,
        pero puedes cambiarla para ver o completar días anteriores. -->
-  <div class="flex items-center gap-2 mb-5">
+  <div class="flex items-center gap-2 mb-3">
     <label for="fecha-input" class="text-xs text-slate-400">Día:</label>
     <input id="fecha-input" type="date" onchange="render()"
-      class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-    <button onclick="irAHoy()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-2 rounded-xl text-xs">
+      class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+    <button onclick="irAHoy()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 px-3 py-1.5 rounded-xl text-xs">
       Hoy
     </button>
   </div>
 
   <!-- BLOQUE 1: NUTRICIÓN / MACROS -->
-  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-5 space-y-3">
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mb-3 space-y-2">
     <div class="flex justify-between items-center">
       <h2 id="titulo-nutricion" class="text-sm font-semibold text-sky-300">1. Nutrición y Macros (hoy)</h2>
       <span id="resumen-kcal" class="text-sm font-bold text-sky-400">0 / 2400 kcal</span>
@@ -59,31 +59,31 @@
     <div id="barras-macros" class="space-y-1.5"></div>
 
     <!-- NUEVO: editar tus objetivos diarios -->
-    <details class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-2">
+    <details class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1.5">
       <summary class="cursor-pointer text-xs text-sky-300 font-semibold">Mis objetivos diarios (editar)</summary>
-      <div class="space-y-2 pt-3">
+      <div class="space-y-1.5 pt-2">
         <div class="grid grid-cols-4 gap-2">
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Kcal</label>
-            <input id="obj-kcal" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
+            <input id="obj-kcal" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Prot. (g)</label>
-            <input id="obj-p" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
+            <input id="obj-p" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Carbos (g)</label>
-            <input id="obj-c" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
+            <input id="obj-c" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Grasas (g)</label>
-            <input id="obj-f" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
+            <input id="obj-f" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
         </div>
-        <p id="aviso-objetivos" class="text-[11px] text-slate-400"></p>
+        <p id="aviso-objetivos" class="text-[11px] text-slate-400 empty:hidden"></p>
         <div class="flex gap-2">
-          <button onclick="restablecerObjetivos()" class="flex-1 bg-slate-800 border border-slate-700 hover:bg-slate-700 py-2 rounded-xl text-sm">Restablecer</button>
-          <button onclick="guardarObjetivos()" class="flex-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">Guardar objetivos</button>
+          <button onclick="restablecerObjetivos()" class="flex-1 bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm">Restablecer</button>
+          <button onclick="guardarObjetivos()" class="flex-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">Guardar objetivos</button>
         </div>
       </div>
     </details>
@@ -92,41 +92,37 @@
          1) Código de barras con la cámara o escrito a mano -> Open Food Facts.
          2) Buscador por nombre -> Open Food Facts (toca un resultado para usarlo).
          3) Foto de la TABLA NUTRICIONAL impresa -> apoyo para revisar/rellenar. -->
-    <div id="bloque-escaner" class="space-y-2 bg-slate-800/60 border border-slate-700 rounded-xl p-3">
+    <div id="bloque-escaner" class="space-y-1.5 bg-slate-800/60 border border-slate-700 rounded-xl p-2.5">
       <p class="text-xs font-semibold text-emerald-300">Buscar alimento</p>
       <!-- Explicación corta de qué usar en cada caso -->
       <p class="text-[11px] text-slate-400 leading-snug">
-        🥔 <b class="text-slate-300">Frescos y básicos</b> (patata, fruta, legumbres, carne, pescado…): están en
-        <b class="text-slate-300">🔎 Filtrar alimentos</b>, más abajo, o salen aquí marcados <span class="text-sky-400">«en tu lista»</span>. Funcionan sin internet.<br>
-        📦 <b class="text-slate-300">Productos envasados</b>: código de barras o búsqueda en Open Food Facts (necesita internet).
+        🥔 Frescos: en <b class="text-slate-300">🔎 Filtrar</b> (sin internet) · 📦 Envasados: código o búsqueda (con internet).
       </p>
 
       <!-- Buscador por nombre -->
       <div class="flex gap-2">
-        <input id="busqueda-input" type="search" enterkeyhint="search" placeholder="Ej. patata, lentejas o yogur griego hacendado"
+        <input id="busqueda-input" type="search" enterkeyhint="search" placeholder="Ej. patata, lentejas, yogur griego…"
           onkeydown="if (event.key === 'Enter') buscarPorNombre()"
-          class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-        <button onclick="buscarPorNombre()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-2 rounded-xl text-sm">Buscar</button>
+          class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <button onclick="buscarPorNombre()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-1.5 rounded-xl text-sm">Buscar</button>
       </div>
       <!-- Aquí salen los resultados: toca uno para rellenar "Mis alimentos" -->
       <ul id="resultados-busqueda" class="space-y-1.5 text-xs"></ul>
 
       <div class="grid grid-cols-2 gap-2">
-        <button id="btn-camara" onclick="abrirEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 font-semibold py-2 rounded-xl text-sm">
+        <button id="btn-camara" onclick="abrirEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm">
           ▥ Código de barras
         </button>
-        <label class="text-center bg-slate-700 hover:bg-slate-600 font-semibold py-2 rounded-xl text-sm cursor-pointer">
+        <label class="text-center bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm cursor-pointer">
           📷 Foto tabla nutricional
           <input id="foto-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoEtiqueta(this)" />
         </label>
       </div>
-      <p class="text-[11px] text-slate-500">La foto es solo para la <b>tabla nutricional impresa</b> de un envase, no para platos ni alimentos sueltos.</p>
+      <p class="text-[11px] text-slate-500">📷 Solo para la <b>tabla nutricional impresa</b> de un envase.</p>
 
       <!-- NUEVO: foto fija del código de barras (por si en directo no lo lee). Un solo selector de archivo, dos botones. -->
       <input id="foto-codigo-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoCodigo(this)" />
-      <label for="foto-codigo-input" class="block text-center text-[12px] text-sky-300 underline cursor-pointer">
-        ¿No lo lee en directo? 📸 Haz una foto al código de barras
-      </label>
+      <label for="foto-codigo-input" class="block text-center text-[11px] text-sky-300 underline cursor-pointer">¿No lo lee en directo? 📸 Foto al código</label>
 
       <!-- Aquí aparece la imagen de la cámara mientras escaneas -->
       <div id="zona-camara" class="hidden space-y-2">
@@ -136,36 +132,36 @@
           <div class="pointer-events-none absolute inset-x-[5%] top-1/2 -translate-y-1/2 h-[45%] border-2 border-emerald-400/80 rounded-lg"></div>
         </div>
         <div class="grid grid-cols-3 gap-2">
-          <button onclick="capturarFotograma()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">⦿ Capturar</button>
-          <label for="foto-codigo-input" class="text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm cursor-pointer">📸 Foto</label>
-          <button onclick="cerrarEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 py-2 rounded-xl text-sm">Cerrar</button>
+          <button onclick="capturarFotograma()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">⦿ Capturar</button>
+          <label for="foto-codigo-input" class="text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm cursor-pointer">📸 Foto</label>
+          <button onclick="cerrarEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 py-1.5 rounded-xl text-sm">Cerrar</button>
         </div>
       </div>
 
       <!-- Si la cámara no va, puedes escribir el número que hay debajo de las barras -->
       <div class="flex gap-2">
-        <input id="codigo-input" type="text" inputmode="numeric" placeholder="Nº del código de barras (ej. 8410000…)"
+        <input id="codigo-input" type="text" inputmode="numeric" placeholder="Nº del código de barras"
           onkeydown="if (event.key === 'Enter') buscarCodigo(this.value)"
-          class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-        <button onclick="buscarCodigo(document.getElementById('codigo-input').value)" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-xl text-sm">Buscar</button>
+          class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <button onclick="buscarCodigo(document.getElementById('codigo-input').value)" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-xl text-sm">Buscar</button>
       </div>
 
-      <p id="estado-escaner" class="text-[11px] text-slate-400"></p>
+      <p id="estado-escaner" class="text-[11px] text-slate-400 empty:hidden"></p>
     </div>
 
     <!-- NUEVO: filtro rápido. Escribe parte del nombre y el desplegable de abajo
          se reduce al instante a los alimentos que coinciden (básicos y tuyos). Sin internet. -->
-    <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos básicos y tuyos (ej. patata, plátano, lentejas…)"
+    <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos (patata, plátano…)"
       oninput="filtrarAlimentos()" onkeydown="if (event.key === 'Enter') document.getElementById('gramos-input').focus()"
-      class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-    <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1"></p>
+      class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+    <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1 empty:hidden"></p>
 
     <div class="flex gap-2">
       <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
            así aparecen tanto los alimentos de base como los tuyos. -->
-      <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm"></select>
-      <input id="gramos-input" type="number" placeholder="g" min="1" class="w-20 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-      <button onclick="addFood()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-2 rounded-xl text-sm">
+      <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm"></select>
+      <input id="gramos-input" type="number" placeholder="g" min="1" class="w-20 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+      <button onclick="addFood()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-1.5 rounded-xl text-sm">
         +
       </button>
     </div>
@@ -173,9 +169,9 @@
     <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
 
     <!-- NUEVO: crear tus propios alimentos. Copia los datos "por 100 g" de la etiqueta. -->
-    <details id="panel-alimentos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-2">
-      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">Mis alimentos (añadir, revisar o borrar)</summary>
-      <div class="space-y-2 pt-3">
+    <details id="panel-alimentos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1.5">
+      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">Mis alimentos (añadir o borrar)</summary>
+      <div class="space-y-1.5 pt-2">
         <!-- Vista previa de la foto de la etiqueta: se queda visible mientras revisas los números -->
         <div id="caja-foto" class="hidden space-y-1">
           <img id="vista-previa" alt="Foto de la tabla nutricional" class="w-full max-h-72 object-contain rounded-xl bg-black" />
@@ -185,28 +181,28 @@
           </div>
         </div>
         <input id="nuevo-nombre" type="text" placeholder="Nombre (ej. Yogur griego)" maxlength="40"
-          class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
-        <p class="text-[11px] text-slate-400">Valores por 100 g (míralos en la etiqueta):</p>
+          class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <p class="text-[11px] text-slate-400">Valores por 100 g:</p>
         <div class="grid grid-cols-4 gap-2">
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Kcal</label>
-            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
+            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Prot. (g)</label>
-            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
+            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Carbos (g)</label>
-            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
+            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
-            <label class="block text-[11px] text-slate-400 mb-1">Grasas (g)</label>
-            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-2 text-sm" />
+            <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
+            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
         </div>
-        <p id="aviso-alimento" class="text-[11px] text-rose-400"></p>
-        <button onclick="addCustomFood()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">
+        <p id="aviso-alimento" class="text-[11px] text-rose-400 empty:hidden"></p>
+        <button onclick="addCustomFood()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">
           Guardar alimento
         </button>
         <ul id="lista-mis-alimentos" class="space-y-1.5 text-xs text-slate-300 pt-1"></ul>
@@ -215,10 +211,10 @@
   </section>
 
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
-  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-2">
     <h2 class="text-sm font-semibold text-emerald-300">2–4. Entrenamiento y Progresión</h2>
 
-    <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm">
+    <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm">
       <optgroup label="2. Fuerza con pesas (progresión por carga)">
         <option value="sentadilla_pesa">Sentadilla con pesa / barra</option>
         <option value="press_banca">Press de banca / mancuernas</option>
@@ -237,48 +233,48 @@
       </optgroup>
     </select>
 
-    <p id="info-modalidad" class="text-[11px] text-slate-400"></p>
+    <p id="info-modalidad" class="text-[11px] text-slate-400 empty:hidden"></p>
 
     <!-- NUEVO: aquí se muestra tu último registro de este ejercicio y qué toca hoy -->
     <div id="ultimo-registro" class="text-[11px]"></div>
 
     <div class="grid grid-cols-3 gap-2">
       <div id="campo-carga">
-        <label id="label-carga" class="block text-[11px] text-slate-400 mb-1">Peso (kg)</label>
-        <input id="peso-input" type="number" step="0.5" placeholder="20" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <label id="label-carga" class="block text-[11px] text-slate-400 mb-0.5">Peso (kg)</label>
+        <input id="peso-input" type="number" step="0.5" placeholder="20" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
       </div>
       <div>
-        <label class="block text-[11px] text-slate-400 mb-1">Series</label>
-        <input id="series-input" type="number" placeholder="3" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <label class="block text-[11px] text-slate-400 mb-0.5">Series</label>
+        <input id="series-input" type="number" placeholder="3" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
       </div>
       <div>
-        <label class="block text-[11px] text-slate-400 mb-1">Reps</label>
-        <input id="reps-input" type="number" placeholder="10" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm" />
+        <label class="block text-[11px] text-slate-400 mb-0.5">Reps</label>
+        <input id="reps-input" type="number" placeholder="10" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
       </div>
     </div>
 
-    <button onclick="addWorkout()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-2.5 rounded-xl text-sm">
-      Guardar registro y calcular progresión
+    <button onclick="addWorkout()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">
+      Guardar y calcular progresión
     </button>
     <!-- NUEVO: mensaje tras guardar (o si falta algún dato) -->
-    <p id="aviso-entreno" class="text-[11px] text-slate-400"></p>
+    <p id="aviso-entreno" class="text-[11px] text-slate-400 empty:hidden"></p>
 
-    <div id="lista-entrenos" class="space-y-2.5 pt-2"></div>
+    <div id="lista-entrenos" class="space-y-2 pt-1"></div>
   </section>
 
   <!-- NUEVO: COPIA DE SEGURIDAD. Tus datos viven en este navegador; con esto
        puedes pasarlos a otro móvil, a la app instalada o guardarlos por si acaso. -->
-  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-4 mt-5 space-y-3">
+  <section class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mt-3 space-y-2">
     <h2 class="text-sm font-semibold text-slate-300">Copia de seguridad</h2>
-    <p class="text-[11px] text-slate-400">Descarga un archivo con todas tus comidas, entrenos, alimentos y objetivos, o recupéralos desde uno.</p>
+    <p class="text-[11px] text-slate-400">Guarda o recupera todos tus datos en un archivo.</p>
     <div class="grid grid-cols-2 gap-2">
-      <button onclick="exportarDatos()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 py-2 rounded-xl text-sm">⬇ Exportar</button>
-      <label class="text-center bg-slate-800 border border-slate-700 hover:bg-slate-700 py-2 rounded-xl text-sm cursor-pointer">
+      <button onclick="exportarDatos()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm">⬇ Exportar</button>
+      <label class="text-center bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm cursor-pointer">
         ⬆ Importar
         <input type="file" accept="application/json,.json" class="hidden" onchange="importarDatos(this)" />
       </label>
     </div>
-    <p id="aviso-copia" class="text-[11px] text-slate-400"></p>
+    <p id="aviso-copia" class="text-[11px] text-slate-400 empty:hidden"></p>
   </section>
 
   <!-- NUEVO: ventanita para confirmar antes de borrar -->
@@ -286,8 +282,8 @@
     <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 w-full max-w-xs space-y-4">
       <p id="dialogo-texto" class="text-sm"></p>
       <div class="flex gap-2">
-        <button id="dialogo-no" class="flex-1 bg-slate-800 hover:bg-slate-700 py-2 rounded-xl text-sm">Cancelar</button>
-        <button id="dialogo-si" class="flex-1 bg-rose-500 hover:bg-rose-400 text-slate-950 font-semibold py-2 rounded-xl text-sm">Borrar</button>
+        <button id="dialogo-no" class="flex-1 bg-slate-800 hover:bg-slate-700 py-1.5 rounded-xl text-sm">Cancelar</button>
+        <button id="dialogo-si" class="flex-1 bg-rose-500 hover:bg-rose-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">Borrar</button>
       </div>
     </div>
   </div>
@@ -1392,14 +1388,14 @@
       const v = x => (x === undefined || x === '' || isNaN(parseFloat(x))) ? '–' : Math.round(parseFloat(x) * 10) / 10;
       const locales = resultadosLocales.map(({ item }, i) => `<li>
           <button onclick="elegirLocal(${i})"
-            class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-sky-900 rounded-xl px-3 py-2">
+            class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-sky-900 rounded-xl px-3 py-1.5">
             <span class="block text-slate-100">${escaparHTML(item.name)} <span class="text-sky-400">· en tu lista</span></span>
             <span class="block text-slate-400">${v(item.kcal)} kcal · P ${v(item.p)} · C ${v(item.c)} · G ${v(item.f)}</span>
           </button>
         </li>`);
       const deOFF = resultadosBusqueda.map(({ prod, info }, i) => `<li>
           <button onclick="elegirResultado(${i})"
-            class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2">
+            class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-1.5">
             <span class="block text-slate-100">${escaparHTML(info.nombre)}${prod.quantity ? ` <span class="text-slate-500">· ${escaparHTML(prod.quantity)}</span>` : ''}</span>
             <span class="block text-slate-400">${v(info.kcal)} kcal · P ${v(info.p)} · C ${v(info.c)} · G ${v(info.f)}
               ${info.faltan ? '<span class="text-amber-400">· faltan datos</span>' : ''}</span>
@@ -1849,7 +1845,7 @@
 
       document.getElementById('lista-comidas').innerHTML = comidasDelDia.length
         ? comidasDelDia
-            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-2 rounded-xl">
+            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-1.5 rounded-xl">
               <span>${escaparHTML(item.name)} (${item.grams}g)</span>
               <span class="flex items-center gap-3">
                 <span class="font-semibold text-sky-300">${item.kcal} kcal</span>
@@ -1864,7 +1860,7 @@
       rellenarSelectorAlimentos();
       document.getElementById('lista-mis-alimentos').innerHTML = customFoods.length
         ? customFoods
-            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-2 rounded-xl">
+            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-1.5 rounded-xl">
               <span>${escaparHTML(item.name)}
                 <span class="text-slate-500">· ${item.kcal} kcal · P ${item.p} · C ${item.c} · G ${item.f}</span>
               </span>
@@ -1898,7 +1894,7 @@
             </li>`)
             .join('');
 
-          return `<div class="bg-slate-800/80 border border-slate-700 rounded-xl p-3 text-xs space-y-1">
+          return `<div class="bg-slate-800/80 border border-slate-700 rounded-xl p-2 text-xs space-y-0.5">
             <div class="flex justify-between items-center font-semibold text-sm">
               <span>${ex.name}</span>
               <span class="text-emerald-400 text-xs">${prog.badge}</span>
