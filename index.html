@@ -158,13 +158,18 @@
       <!-- Aquí salen los resultados: toca uno para rellenar "Mis alimentos" -->
       <ul id="resultados-busqueda" class="space-y-1.5 text-xs"></ul>
 
-      <div class="grid grid-cols-2 gap-2">
-        <button id="btn-camara" onclick="abrirEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm whitespace-nowrap">
-          ▥ Código de barras
+      <div class="grid grid-cols-3 gap-1.5">
+        <button id="btn-camara" onclick="abrirEscanerCodigo()" title="Código de barras" class="bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-xs whitespace-nowrap">
+          ▥ Código
         </button>
-        <label class="boton text-center bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm cursor-pointer whitespace-nowrap" title="Solo para la tabla nutricional impresa de un envase">
-          📷 Foto tabla nutric.
+        <label class="boton text-center bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-xs cursor-pointer whitespace-nowrap" title="Foto de la tabla nutricional impresa de un envase">
+          📷 Tabla
           <input id="foto-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoEtiqueta(this)" />
+        </label>
+        <!-- NUEVO: foto a una fruta o verdura suelta: la app intenta reconocerla (en tu móvil, sin servidores) -->
+        <label class="boton text-center bg-emerald-700 hover:bg-emerald-600 font-semibold py-1.5 rounded-xl text-xs cursor-pointer whitespace-nowrap" title="Foto alimento fresco (fruta o verdura suelta)">
+          🥦 Fresco
+          <input id="foto-fresco-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="fotoAlimentoFresco(this)" />
         </label>
       </div>
 
@@ -365,6 +370,8 @@
       mango:        { cat: 'Frutas', name: 'Mango', kcal: 60, p: 0.8, c: 14, f: 0.4 },
       cerezas:      { cat: 'Frutas', name: 'Cerezas', kcal: 63, p: 1.1, c: 14, f: 0.2 },
       higos:        { cat: 'Frutas', name: 'Higos', kcal: 74, p: 0.8, c: 16, f: 0.3 },
+      limon:        { cat: 'Frutas', name: 'Limón', kcal: 29, p: 1.1, c: 6.5, f: 0.3 },
+      granada:      { cat: 'Frutas', name: 'Granada', kcal: 83, p: 1.7, c: 14.7, f: 1.2 },
       aguacate:     { cat: 'Frutas', name: 'Aguacate', kcal: 160, p: 2, c: 1.8, f: 15 },
 
       // --- Legumbres ---
@@ -374,6 +381,8 @@
       garbanzos_cocidos:   { cat: 'Legumbres', name: 'Garbanzos cocidos', kcal: 164, p: 9, c: 20, f: 2.6 },
       alubias:             { cat: 'Legumbres', name: 'Alubias blancas (secas)', kcal: 333, p: 23, c: 45, f: 0.9 },
       alubias_cocidas:     { cat: 'Legumbres', name: 'Alubias cocidas', kcal: 139, p: 9.7, c: 19, f: 0.4 },
+      alubias_rojas_cocidas: { cat: 'Legumbres', name: 'Alubias rojas cocidas', kcal: 127, p: 8.7, c: 16.4, f: 0.5 },
+      habas:               { cat: 'Legumbres', name: 'Habas (frescas o congeladas)', kcal: 72, p: 5.6, c: 8.6, f: 0.6 },
       guisantes:           { cat: 'Legumbres', name: 'Guisantes', kcal: 81, p: 5.4, c: 9.4, f: 0.4 },
       tofu:                { cat: 'Legumbres', name: 'Tofu firme', kcal: 145, p: 15.8, c: 2, f: 8.7 },
       hummus:              { cat: 'Legumbres', name: 'Hummus', kcal: 166, p: 7.9, c: 9, f: 9.6 },
@@ -454,6 +463,11 @@
       zanahoria:         { cat: 'Verduras', name: 'Zanahoria', kcal: 41, p: 0.9, c: 6.8, f: 0.2 },
       cebolla:           { cat: 'Verduras', name: 'Cebolla', kcal: 40, p: 1.1, c: 7.6, f: 0.1 },
       ajo:               { cat: 'Verduras', name: 'Ajo', kcal: 149, p: 6.4, c: 31, f: 0.5 },
+      pimiento_verde:    { cat: 'Verduras', name: 'Pimiento verde', kcal: 20, p: 0.9, c: 2.9, f: 0.2 },
+      col:               { cat: 'Verduras', name: 'Col / repollo', kcal: 25, p: 1.3, c: 3.3, f: 0.1 },
+      apio:              { cat: 'Verduras', name: 'Apio', kcal: 16, p: 0.7, c: 1.4, f: 0.2 },
+      remolacha:         { cat: 'Verduras', name: 'Remolacha', kcal: 43, p: 1.6, c: 7, f: 0.2 },
+      rabanos:           { cat: 'Verduras', name: 'Rábanos', kcal: 16, p: 0.7, c: 2, f: 0.1 },
       pimiento_rojo:     { cat: 'Verduras', name: 'Pimiento rojo', kcal: 31, p: 1, c: 3.9, f: 0.3 },
       calabacin:         { cat: 'Verduras', name: 'Calabacín', kcal: 17, p: 1.2, c: 2.1, f: 0.3 },
       berenjena:         { cat: 'Verduras', name: 'Berenjena', kcal: 25, p: 1, c: 2.9, f: 0.2 },
@@ -993,7 +1007,7 @@
     async function capturarFotograma() {
       const video = document.getElementById('video-lector');
       if (!video || !video.srcObject) {
-        avisoEscaner('Abre primero la cámara con «▥ Código de barras».', 'error');
+        avisoEscaner('Abre primero la cámara con «▥ Código».', 'error');
         return;
       }
       avisoEscaner('Capturando y analizando…');
@@ -1526,6 +1540,136 @@
 
     // Tesseract.js pesa bastante, así que solo lo descargamos la primera vez que lo usas.
     let promesaTesseract = null;
+    // ---------- NUEVO: FOTO A UN ALIMENTO FRESCO (reconocimiento en el propio móvil) ----------
+    // Usa TensorFlow.js + MobileNet: se descargan solo la primera vez que lo usas
+    // y luego quedan guardados. La foto NO sale de tu móvil.
+    // MobileNet conoce unas 1000 cosas en inglés; aquí traducimos las de frutas y verduras
+    // a tus alimentos. Para cada etiqueta: [el más probable, alternativas parecidas…].
+    const MAPA_FRESCOS = {
+      'granny smith': ['manzana', 'pera'],
+      'strawberry': ['fresas', 'cerezas', 'tomate'],
+      'orange': ['naranja', 'mandarina', 'limon'],
+      'lemon': ['limon', 'naranja'],
+      'banana': ['platano'],
+      'pineapple': ['pina'],
+      'fig': ['higos'],
+      'pomegranate': ['granada', 'tomate', 'manzana'],
+      'custard apple': ['mango', 'aguacate'],
+      'jackfruit': ['mango', 'pina'],
+      'broccoli': ['brocoli', 'coliflor'],
+      'cauliflower': ['coliflor', 'brocoli'],
+      'zucchini': ['calabacin', 'pepino'],
+      'courgette': ['calabacin', 'pepino'],
+      'cucumber': ['pepino', 'calabacin'],
+      'spaghetti squash': ['calabaza'],
+      'acorn squash': ['calabaza'],
+      'butternut squash': ['calabaza', 'boniato'],
+      'bell pepper': ['pimiento_rojo', 'pimiento_verde', 'tomate'],
+      'head cabbage': ['col', 'lechuga'],
+      'artichoke': ['alcachofa'],
+      'cardoon': ['alcachofa', 'apio'],
+      'mushroom': ['champinones'],
+      'agaric': ['champinones'],
+      'bolete': ['champinones'],
+      'hen-of-the-woods': ['champinones'],
+      'corn': ['maiz_dulce'],
+      'ear': ['maiz_dulce'],
+      'mashed potato': ['patata_cocida', 'patata', 'boniato'],
+      'guacamole': ['aguacate'],
+      'french loaf': ['pan_blanco', 'pan_integral'],
+      'acorn': ['avellanas', 'almendras'],
+      'buckeye': ['avellanas', 'nueces']
+    };
+
+    let promesaMobilenet = null;
+    function cargarMobilenet() {
+      if (!promesaMobilenet) {
+        promesaMobilenet = (async () => {
+          if (!window.tf) await cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+          if (!window.mobilenet) await cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js');
+          try { return await window.mobilenet.load({ version: 2, alpha: 1.0 }); }
+          catch (_) { return await window.mobilenet.load({ version: 1, alpha: 1.0 }); }   // plan B
+        })().catch(e => { promesaMobilenet = null; throw e; });
+      }
+      return promesaMobilenet;
+    }
+
+    // Convierte lo que dice MobileNet en tus alimentos, ordenados de más a menos probable.
+    function frescosDesdePredicciones(predicciones) {
+      const puntos = {};
+      for (const { className, probability } of predicciones) {
+        const nombres = String(className).toLowerCase().split(',').map(t => t.trim());
+        const claves = nombres.map(n => MAPA_FRESCOS[n]).find(Boolean);
+        if (!claves) continue;
+        claves.forEach((clave, i) => {
+          if (!FOOD_DB[clave]) return;
+          const valor = probability * (i === 0 ? 1 : 0.5 / i);   // la principal cuenta más
+          puntos[clave] = (puntos[clave] || 0) + valor;
+        });
+      }
+      return Object.entries(puntos)
+        .sort((a, b) => b[1] - a[1])
+        .map(([clave, p]) => ({ clave, p }));
+    }
+
+    let opcionesFresco = [];
+    function mostrarOpcionesFresco(elegida) {
+      document.getElementById('resultados-busqueda').innerHTML = opcionesFresco.map(({ clave }) => {
+        const item = FOOD_DB[clave];
+        const activa = clave === elegida;
+        return `<li>
+          <button onclick="elegirFresco('${clave}')"
+            class="w-full text-left bg-slate-800 hover:bg-slate-700 border ${activa ? 'border-emerald-500' : 'border-slate-700'} rounded-xl px-3 py-1.5">
+            <span class="block text-slate-100">${activa ? '✓ ' : ''}${escaparHTML(item.name)}</span>
+            <span class="block text-slate-400">${item.kcal} kcal · P ${item.p} · C ${item.c} · G ${item.f} (por 100 g)</span>
+          </button>
+        </li>`;
+      }).join('');
+    }
+
+    function elegirFresco(clave) {
+      if (!FOOD_DB[clave]) return;
+      rellenarSelectorAlimentos(clave);
+      mostrarOpcionesFresco(clave);
+      const gramos = document.getElementById('gramos-input');
+      gramos.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      gramos.focus();
+      avisoEscaner(`🥦 "${FOOD_DB[clave].name}" elegido: pon los gramos y pulsa +. ¿No es? Toca otra opción.`, 'ok');
+    }
+
+    async function fotoAlimentoFresco(input) {
+      const archivo = input.files && input.files[0];
+      input.value = '';
+      if (!archivo) return;
+      document.getElementById('resultados-busqueda').innerHTML = '';
+      avisoEscaner(promesaMobilenet ? 'Reconociendo el alimento…'
+        : 'Preparando el reconocimiento (solo la primera vez tarda un poco, ~15 MB)…');
+      let modelo;
+      try { modelo = await cargarMobilenet(); }
+      catch (_) {
+        avisoEscaner('No se pudo descargar el reconocedor (¿sin internet?). Mientras, escribe el nombre en 🔎 Filtrar alimentos.', 'error');
+        return;
+      }
+      try {
+        avisoEscaner('Reconociendo el alimento…');
+        const img = await abrirImagen(archivo);
+        const predicciones = await modelo.classify(img, 10);
+        URL.revokeObjectURL(img.src);
+        opcionesFresco = frescosDesdePredicciones(predicciones).slice(0, 3);
+        if (!opcionesFresco.length) {
+          avisoEscaner('No lo he reconocido. Haz la foto de cerca, con un solo alimento y buena luz, o escribe el nombre en 🔎 Filtrar alimentos (cebolla, ajo, zanahoria o patata casi nunca los reconoce).', 'error');
+          return;
+        }
+        elegirFresco(opcionesFresco[0].clave);
+        const nombre = FOOD_DB[opcionesFresco[0].clave].name;
+        const dudoso = opcionesFresco[0].p < 0.35;
+        avisoEscaner(`🥦 ${dudoso ? 'Puede que sea' : 'Parece'}: ${nombre}. Ya está elegido: pon los gramos y pulsa +.` +
+          (opcionesFresco.length > 1 ? ' ¿No es? Toca otra opción arriba.' : ''), dudoso ? 'info' : 'ok');
+      } catch (_) {
+        avisoEscaner('No se pudo analizar la foto. Prueba otra vez o escribe el nombre en 🔎 Filtrar alimentos.', 'error');
+      }
+    }
+
     function cargarTesseract() {
       if (window.Tesseract) return Promise.resolve(window.Tesseract);
       if (!promesaTesseract) {
