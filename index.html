@@ -208,11 +208,14 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen min-h-[100svh] w-full max-w-md mx-auto px-3 sm:px-4 py-3">
   <!-- CABECERA: nombre de la app + SELECTOR DE DÍA en una sola fila.
        Todo lo que apuntes se guarda con esta fecha (por defecto, hoy). -->
-  <header class="flex items-center gap-2 mb-1.5">
-    <h1 class="text-lg font-bold text-sky-400 leading-tight shrink-0 whitespace-nowrap">FitTrack <span class="text-slate-500 text-xs font-semibold">4-en-1</span></h1>
+  <header class="flex items-center gap-1.5 mb-1.5">
+    <h1 class="text-lg font-bold text-sky-400 leading-tight shrink-0 whitespace-nowrap">FitTrack <span class="text-slate-500 text-xs font-semibold max-[380px]:hidden">4-en-1</span></h1>
     <label for="fecha-input" class="sr-only">Día</label>
+    <!-- NUEVO: ‹ › para pasar de un día a otro con un toque -->
+    <button onclick="moverDia(-1)" title="Día anterior" aria-label="Día anterior" class="mini shrink-0 h-9 w-8 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-base leading-none">‹</button>
     <input id="fecha-input" type="date" onchange="render()"
       class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+    <button onclick="moverDia(1)" title="Día siguiente" aria-label="Día siguiente" class="mini shrink-0 h-9 w-8 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl text-base leading-none">›</button>
     <button onclick="irAHoy()" class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl text-xs">
       Hoy
     </button>
@@ -607,7 +610,7 @@
   <!-- NUEVO: COPIA DE SEGURIDAD. Tus datos viven en este navegador; con esto
        puedes pasarlos a otro móvil, a la app instalada o guardarlos por si acaso. -->
   <details class="bg-slate-900 border border-slate-800 rounded-2xl px-3 py-2 mt-3">
-    <summary class="cursor-pointer text-sm font-semibold text-slate-300">💾 Copia de seguridad</summary>
+    <summary id="titulo-copia" class="cursor-pointer text-sm font-semibold text-slate-300">💾 Copia de seguridad</summary>
     <div class="space-y-2 pt-2">
     <p class="text-[11px] text-slate-400">Guarda o recupera todos tus datos (comidas, agua, entrenos…) en un archivo.</p>
     <div class="grid grid-cols-2 gap-2">
@@ -618,6 +621,11 @@
       </label>
     </div>
     <p id="aviso-copia" class="text-[11px] text-slate-400 empty:hidden"></p>
+    <!-- NUEVO: respaldo automático interno (se guarda solo al cambiar tus datos) -->
+    <div class="flex items-center justify-between gap-2">
+      <p id="info-autorespaldo" class="text-[11px] text-slate-500 min-w-0"></p>
+      <button onclick="restaurarAutoRespaldo()" class="mini shrink-0 h-8 px-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-[11px] whitespace-nowrap">↺ Restaurar</button>
+    </div>
     </div>
   </details>
 
@@ -873,6 +881,7 @@
     }
     function guardar(clave, valor) {
       try { localStorage.setItem(clave, JSON.stringify(valor)); } catch (e) { /* sin guardado */ }
+      try { programarAutoRespaldo(); } catch (e) { /* nada */ }   // NUEVO: respaldo interno automático
     }
 
     // ---------- VENTANA DE CONFIRMACIÓN PROPIA ----------
@@ -1630,6 +1639,8 @@
       let mejorRespuesta = null;
 
       for (const servidor of SERVIDORES_OFF) {
+        // MEJORADO: si ya se canceló la búsqueda, no seguimos probando servidores.
+        if (señalExterna && señalExterna.aborted) throw errorOFF('cancelada');
         const control = new AbortController();
         const cancelarFuera = () => control.abort();
         if (señalExterna) señalExterna.addEventListener('abort', cancelarFuera);
@@ -2229,16 +2240,16 @@
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
       avisoEscaner('Preparando el lector de texto… (la primera vez tarda un poco más)');
+      let worker = null;   // MEJORADO: se cierra SIEMPRE en el finally (aunque falle la lectura)
       try {
         const Tesseract = await cargarTesseract();
         const foto = await prepararFotoParaOCR(archivo);   // gris + contraste
-        const worker = await Tesseract.createWorker('spa', 1, {
+        worker = await Tesseract.createWorker('spa', 1, {
           logger: m => {
             if (m.status === 'recognizing text') avisoEscaner(`Leyendo la etiqueta… ${Math.round(m.progress * 100)} %`);
           }
         });
         const { data } = await worker.recognize(foto);
-        await worker.terminate();
 
         const valores = interpretarEtiqueta(data.text || '');
         const encontrados = ['kcal', 'p', 'c', 'f'].filter(k => valores[k] !== '').length;
@@ -2257,6 +2268,8 @@
         if (!nombreActual) document.getElementById('nuevo-nombre').focus();
       } catch (e) {
         avisoEscaner('No se pudo leer la foto automáticamente (¿sin internet?). Tienes la foto en "Mis alimentos": copia los valores a mano.', 'error');
+      } finally {
+        if (worker) { try { await worker.terminate(); } catch (e) { /* ya cerrado */ } }
       }
     }
 
@@ -2502,9 +2515,12 @@
     function barra(nombre, valor, objetivo, unidad, color) {
       const pct = Math.min(100, Math.round((valor / objetivo) * 100));
       const valorTexto = unidad === 'kcal' ? Math.round(valor) : valor.toFixed(1);
+      // NUEVO: si te pasas más de un 5 % del objetivo, la barra y la cifra se tiñen de rojo suave.
+      const pasado = objetivo > 0 && valor > objetivo * 1.05;
+      if (pasado) color = 'bg-rose-400';
       return `<div class="min-w-0">
         <div class="flex justify-between gap-1 text-[11px] leading-tight text-slate-400">
-          <span class="truncate">${nombre}</span><span class="shrink-0">${valorTexto}/${objetivo} ${unidad}</span>
+          <span class="truncate">${nombre}</span><span class="shrink-0${pasado ? ' text-rose-400 font-semibold' : ''}">${pasado ? '▲ ' : ''}${valorTexto}/${objetivo} ${unidad}</span>
         </div>
         <div class="h-1.5 mt-0.5 bg-slate-800 rounded-full overflow-hidden">
           <div class="h-full ${color}" style="width:${pct}%"></div>
@@ -2605,7 +2621,13 @@
               <span>${ex.name}</span>
               <span class="text-emerald-400 text-xs">${escaparHTML(prog.badge)}</span>
             </div>
-            <p class="text-slate-400">${modalidad}</p>
+            <div class="flex justify-between items-center gap-2">
+              <p class="text-slate-400 min-w-0">${modalidad}</p>
+              ${ultimo.date === fechaSeleccionada()
+                ? `<button onclick="sumarSerieARegistro('${escaparHTML(ultimo.id)}')" title="Añadir una serie igual a la última de hoy"
+                    class="mini shrink-0 h-8 px-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-[11px] whitespace-nowrap">+1 serie</button>`
+                : ''}
+            </div>
             <p class="text-sky-300">${escaparHTML(prog.tip)}</p>
             <details class="pt-1">
               <summary class="cursor-pointer text-slate-400">Historial (${historial.length})</summary>
@@ -2621,6 +2643,7 @@
       try { pintarRadarConstancia(); } catch (e) { /* nunca rompe render */ }
       try { pintarRecords(); } catch (e) { /* nunca rompe render */ }
       try { pintarResumenSemanalNutri(); } catch (e) { /* nunca rompe render */ }
+      try { programarAutoRespaldo(); } catch (e) { /* nunca rompe render */ }   // agua, sensación, combos…
       pintarAgua();
     }
 
@@ -3993,6 +4016,8 @@
       const aviso = document.getElementById('aviso-copia');
       aviso.className = 'text-[11px] text-emerald-400';
       aviso.textContent = 'Copia descargada. Guárdala en un sitio seguro (Drive, correo…).';
+      try { localStorage.setItem('ft4_lastExport', String(Date.now())); } catch (e) { /* nada */ }
+      pintarTituloCopia();
     }
 
     async function importarDatos(input) {
@@ -4017,6 +4042,131 @@
         aviso.textContent = 'Ese archivo no es una copia de FitTrack válida.';
       }
     }
+
+    // ---------- NUEVO: MOVERSE DE DÍA CON ‹ › ----------
+    function moverDia(delta) {
+      try {
+        const [a, m, d] = fechaSeleccionada().split('-').map(Number);
+        const f = new Date(a, m - 1, d + delta);
+        const txt = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+        document.getElementById('fecha-input').value = txt;
+        render();
+      } catch (e) { /* nada */ }
+    }
+
+    // ---------- NUEVO: +1 SERIE con los mismos datos del último registro del día ----------
+    function sumarSerieARegistro(id) {
+      try {
+        const reg = state.workouts.find(w => w.id === id);
+        if (!reg) return;
+        reg.sets = (parseInt(reg.sets, 10) || 0) + 1;
+        saveState();
+        render();
+        const aviso = document.getElementById('aviso-entreno');
+        aviso.className = 'text-[11px] text-emerald-400';
+        aviso.textContent = `+1 serie ✓ · ${EXERCISE_DB[reg.exKey] ? EXERCISE_DB[reg.exKey].name : ''}: ${reg.sets} series`;
+        iniciarDescanso();
+        animar('serie');
+      } catch (e) { /* nada */ }
+    }
+
+    // ---------- NUEVO: APAGAR TODAS LAS CÁMARAS (al salir de la app o dejarla en segundo plano) ----------
+    function apagarCamaras() {
+      try { if (typeof lectorCodigo !== 'undefined' && (lectorCodigo || controlesZXing)) cerrarEscanerCodigo(); } catch (e) { /* nada */ }
+      try { if (fresco.corriendo || fresco.flujo) cerrarCamaraFresco(); } catch (e) { /* nada */ }
+      try { if (ia.corriendo || ia.flujo) pararIA(); } catch (e) { /* nada */ }
+    }
+    document.addEventListener('visibilitychange', () => { if (document.hidden) apagarCamaras(); });
+    window.addEventListener('pagehide', apagarCamaras);
+
+    // ---------- NUEVO: RESPALDO INTERNO AUTOMÁTICO (ft4_autobackup) ----------
+    // Cada vez que cambian tus datos se guarda una copia interna en este navegador.
+    // Sirve para deshacer un error (por ejemplo, una importación equivocada). No sustituye a Exportar.
+    var temporizadorRespaldo = null;   // var: se puede usar desde render() aunque esté definido más abajo
+    var ultimoRespaldoTexto = null;
+    function programarAutoRespaldo() {
+      clearTimeout(temporizadorRespaldo);
+      temporizadorRespaldo = setTimeout(hacerAutoRespaldo, 1500);
+    }
+    function hacerAutoRespaldo() {
+      try {
+        const datos = {};
+        CLAVES_DATOS.forEach(clave => {
+          try { datos[clave] = JSON.parse(localStorage.getItem(clave) || 'null'); } catch (e) { datos[clave] = null; }
+        });
+        const texto = JSON.stringify(datos);
+        if (texto === ultimoRespaldoTexto) return;
+        if (ultimoRespaldoTexto === null) {
+          // Primera vez en esta sesión: si ya coincide con el guardado, no hace falta reescribir.
+          try { const previo = JSON.parse(localStorage.getItem('ft4_autobackup') || 'null'); if (previo && JSON.stringify(previo.datos) === texto) { ultimoRespaldoTexto = texto; return; } } catch (e) { /* nada */ }
+        }
+        // No machacamos un respaldo con datos por uno vacío (por ejemplo, tras borrar todo sin querer).
+        const vacio = !(datos.ft4_foods && datos.ft4_foods.length) && !(datos.ft4_workouts && datos.ft4_workouts.length);
+        if (vacio && localStorage.getItem('ft4_autobackup')) return;
+        // Guardamos también cómo quedaron tus datos al cierre del último día anterior ("previo"),
+        // para poder deshacer un error de hoy (por ejemplo, borrar algo o importar la copia equivocada).
+        let previo = null;
+        try {
+          const actual = JSON.parse(localStorage.getItem('ft4_autobackup') || 'null');
+          if (actual && actual.fecha) {
+            const diaActual = new Date(actual.fecha).toDateString();
+            previo = diaActual !== new Date().toDateString() ? { fecha: actual.fecha, datos: actual.datos } : (actual.previo || null);
+          }
+        } catch (e) { previo = null; }
+        localStorage.setItem('ft4_autobackup', JSON.stringify({ fecha: new Date().toISOString(), datos, previo }));
+        ultimoRespaldoTexto = texto;
+        pintarTituloCopia();
+      } catch (e) { /* sin espacio o sin guardado: la app sigue igual */ }
+    }
+    async function restaurarAutoRespaldo() {
+      const aviso = document.getElementById('aviso-copia');
+      try {
+        const guardado = JSON.parse(localStorage.getItem('ft4_autobackup') || 'null');
+        // Volvemos al cierre del día anterior (si existe); si no, al último respaldo.
+        const copia = guardado && guardado.previo && guardado.previo.datos ? guardado.previo : guardado;
+        if (!copia || !copia.datos) { aviso.className = 'text-[11px] text-slate-400'; aviso.textContent = 'Todavía no hay respaldo automático.'; return; }
+        const cuando = new Date(copia.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        if (!await confirmar(`¿Volver al respaldo automático del ${cuando}? Se sustituyen tus datos actuales.`, 'Restaurar')) return;
+        CLAVES_DATOS.forEach(clave => {
+          if (!(clave in copia.datos)) return;
+          const valor = copia.datos[clave];
+          if (valor === null || valor === undefined) localStorage.removeItem(clave);
+          else localStorage.setItem(clave, JSON.stringify(valor));
+        });
+        location.reload();
+      } catch (e) {
+        aviso.className = 'text-[11px] text-rose-400';
+        aviso.textContent = 'No se pudo restaurar el respaldo automático.';
+      }
+    }
+    // Título de la copia: cuándo exportaste por última vez (aviso si hace 7 días o más).
+    function pintarTituloCopia() {
+      const titulo = document.getElementById('titulo-copia');
+      if (!titulo) return;
+      try {
+        const ultima = parseInt(localStorage.getItem('ft4_lastExport') || '0', 10);
+        let txt, clase;
+        if (!ultima) { txt = '💾 Copia de seguridad · ⚠️ nunca exportada'; clase = 'text-amber-300'; }
+        else {
+          const dias = Math.floor((Date.now() - ultima) / 86400000);
+          const cuando = dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : `hace ${dias} días`;
+          txt = `💾 Copia de seguridad · ${dias >= 7 ? '⚠️ ' : ''}exportada ${cuando}`;
+          clase = dias >= 7 ? 'text-amber-300' : 'text-slate-300';
+        }
+        titulo.textContent = txt;
+        titulo.className = 'cursor-pointer text-sm font-semibold ' + clase;
+        const auto = document.getElementById('info-autorespaldo');
+        if (auto) {
+          const copia = JSON.parse(localStorage.getItem('ft4_autobackup') || 'null');
+          const fmt = f => new Date(f).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          auto.textContent = copia && copia.fecha
+            ? `Respaldo automático: ${fmt(copia.fecha)}` + (copia.previo && copia.previo.fecha ? ` · ↺ vuelve al ${fmt(copia.previo.fecha)}` : '')
+            : 'Respaldo automático interno: se crea al cambiar tus datos.';
+        }
+      } catch (e) { /* nada */ }
+    }
+
+    try { pintarTituloCopia(); } catch (e) { /* nada */ }
 
     // ---------- NUEVO: MODO APP ----------
     // Pide al navegador que no borre nuestros datos para liberar espacio.
