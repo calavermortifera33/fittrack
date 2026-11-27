@@ -144,6 +144,21 @@
     html body .border-emerald-400\/80, html body .border-emerald-400\/70 { border-color: rgba(255, 255, 255, 0.55); }
     html body .border-emerald-500 { border-color: rgba(255, 255, 255, 0.5); }
     html body .border-sky-900 { border-color: rgba(255, 255, 255, 0.14); }
+    /* Aviso de ánimo flotante: cristal un poco más opaco para leerse bien sobre cualquier cosa */
+    html body #animo {
+      position: fixed;
+      z-index: 50;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 26rem);
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.78);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      backdrop-filter: blur(18px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    }
+    html body #btn-voz[aria-pressed="true"] { background: rgba(241, 245, 249, 0.92); color: #0f172a; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen min-h-[100svh] w-full max-w-md mx-auto px-3 sm:px-4 py-3">
@@ -388,9 +403,13 @@
       <input id="nombre-usuario" type="text" maxlength="20" autocomplete="given-name" placeholder="Tu nombre (para darte ánimos)"
         onchange="guardarNombre()" onkeydown="if (event.key === 'Enter') this.blur()"
         class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-xs" />
+      <!-- NUEVO: voz para los ánimos (desactivada por defecto) -->
+      <button id="btn-voz" onclick="alternarVoz()" title="Leer los ánimos en voz alta" aria-pressed="false"
+        class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap">🔇 Voz</button>
     </div>
-    <!-- NUEVO: mensaje de ánimo (sale unos segundos y se va solo) -->
-    <p id="animo" class="hidden text-center text-sm font-semibold text-slate-100 bg-white/10 border border-white/15 rounded-xl px-3 py-1.5 transition-opacity duration-300" aria-live="polite"></p>
+    <!-- NUEVO: mensaje de ánimo. Flota justo bajo las pestañas para que lo veas aunque hayas bajado
+         (no ocupa sitio ni bloquea toques: se puede pulsar a través de él). -->
+    <p id="animo" class="hidden fixed z-50 left-1/2 -translate-x-1/2 w-[min(92vw,26rem)] pointer-events-none text-center text-sm font-semibold text-slate-100 rounded-xl px-3 py-2 transition-opacity duration-300" aria-live="polite"></p>
 
     <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm">
       <optgroup label="2. Fuerza con pesas (progresión por carga)">
@@ -2999,6 +3018,7 @@
     // Frases: {n} se cambia por ", Nombre" (o desaparece si no hay nombre).
     const FRASES_ANIMO = {
       saludo: ['¡Hola{n}! Vamos a entrenar. 💪'],
+      sinVoz: ['Este navegador no permite leer en voz alta.'],
       inicio: ['¡Vamos{n}! A por todas. 💪', '¡Vamos{n}! Hoy toca superarse.', '¡A por ello{n}! Técnica y constancia.'],
       serie:  ['¡Bien hecho{n}! Serie registrada. ✅', '¡Bien hecho{n}! Una más en el saco.', '¡Así se hace{n}! Serie guardada.'],
       fin:    ['¡Has terminado el descanso{n}! Gran trabajo, a por la siguiente. 🔥', '¡Has terminado{n}! Gran trabajo: siguiente serie.']
@@ -3011,15 +3031,69 @@
       const nombre = nombreUsuario();
       const frase = lista[Math.floor(Math.random() * lista.length)].replace('{n}', nombre ? ', ' + nombre : '');
       caja.textContent = frase;      // textContent: el nombre se muestra tal cual, sin riesgos
+      colocarAnimo();
       caja.classList.remove('hidden');
       caja.style.opacity = '1';
+      hablar(frase);
       clearTimeout(temporizadorAnimo);
       temporizadorAnimo = setTimeout(() => {
         caja.style.opacity = '0';
         temporizadorAnimo = setTimeout(() => caja.classList.add('hidden'), 400);
       }, 4000);
     }
+
+    // Coloca el aviso justo debajo de la barra de pestañas (esté donde esté al hacer scroll).
+    function colocarAnimo() {
+      const caja = document.getElementById('animo');
+      const barra = document.getElementById('barra-pestanas');
+      const abajo = barra ? Math.max(0, barra.getBoundingClientRect().bottom) : 0;
+      caja.style.top = (abajo + 6) + 'px';
+    }
+    window.addEventListener('scroll', () => {
+      if (!document.getElementById('animo').classList.contains('hidden')) colocarAnimo();
+    }, { passive: true });
+
+    // ---------- NUEVO: VOZ (opcional) ----------
+    // Lee los ánimos en voz alta en español. Desactivada por defecto; se recuerda en este móvil.
+    function vozActiva() {
+      try { return localStorage.getItem('ft4_voz') === '1'; } catch (e) { return false; }
+    }
+    function pintarBotonVoz() {
+      const boton = document.getElementById('btn-voz');
+      const activa = vozActiva();
+      boton.textContent = activa ? '🔊 Voz' : '🔇 Voz';
+      boton.setAttribute('aria-pressed', activa ? 'true' : 'false');
+    }
+    function alternarVoz() {
+      if (!('speechSynthesis' in window)) {
+        animar('sinVoz');
+        return;
+      }
+      const activar = !vozActiva();
+      try { localStorage.setItem('ft4_voz', activar ? '1' : '0'); } catch (e) { /* nada */ }
+      pintarBotonVoz();
+      if (activar) hablar('Voz activada');
+      else { try { speechSynthesis.cancel(); } catch (e) { /* nada */ } }
+    }
+    function hablar(texto) {
+      if (!vozActiva() || !('speechSynthesis' in window)) return;
+      try {
+        speechSynthesis.cancel();   // corta la frase anterior para que no se solapen
+        // Quitamos emojis para que no los lea en voz alta.
+        const limpio = texto.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
+        const frase = new SpeechSynthesisUtterance(limpio);
+        frase.lang = 'es-ES';
+        const voces = speechSynthesis.getVoices();
+        const voz = voces.find(v => v.lang === 'es-ES') || voces.find(v => /^es/i.test(v.lang));
+        if (voz) frase.voice = voz;
+        frase.rate = 1;
+        speechSynthesis.speak(frase);
+      } catch (e) { /* si el navegador falla con la voz, seguimos sin ella */ }
+    }
+    // Algunos navegadores cargan las voces un poco después.
+    if ('speechSynthesis' in window) { try { speechSynthesis.getVoices(); } catch (e) { /* nada */ } }
     document.getElementById('nombre-usuario').value = nombreUsuario();
+    pintarBotonVoz();
     document.getElementById('ejercicio-select').addEventListener('change', () => animar('inicio'));
 
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
