@@ -941,65 +941,6 @@
       } catch (_) { return false; }
     }
 
-    // ---- Análisis de la franja central del vídeo con el lector "a fondo" (el de la foto) ----
-    // Cada 700 ms recorta la zona del recuadro guía, la amplía y la pasa por ZXing con TRY_HARDER.
-    let bucleFotogramas = null;
-    function analizarFotogramas(video, ZX) {
-      pararAnalisisFotogramas();
-      let pistas;
-      const L = window.ZXing;
-      if (L && L.DecodeHintType && L.BarcodeFormat) {
-        const B = L.BarcodeFormat;
-        pistas = new Map();
-        pistas.set(L.DecodeHintType.POSSIBLE_FORMATS,
-          [B.EAN_13, B.EAN_8, B.UPC_A, B.UPC_E, B.CODE_128, B.CODE_39, B.ITF, B.CODABAR].filter(f => f !== undefined));
-        pistas.set(L.DecodeHintType.TRY_HARDER, true);
-      }
-      const lectorFondo = new ZX.BrowserMultiFormatReader(pistas);
-      let ocupado = false;
-      let contraste = false;   // alterna normal / alto contraste en cada vuelta
-
-      const vuelta = async () => {
-        if (!controlesZXing || yaLeido) return;
-        if (!ocupado && video.readyState >= 2 && video.videoWidth) {
-          ocupado = true;
-          try {
-            // Franja central: 90 % del ancho y 45 % del alto (donde está el recuadro guía).
-            const vw = video.videoWidth, vh = video.videoHeight;
-            const sx = Math.round(vw * 0.05), sw = Math.round(vw * 0.9);
-            const sh = Math.round(vh * 0.45), sy = Math.round((vh - sh) / 2);
-            const escala = Math.max(1, 1400 / sw);           // la ampliamos si es pequeña
-            const lienzo = document.createElement('canvas');
-            lienzo.width = Math.round(sw * escala);
-            lienzo.height = Math.round(sh * escala);
-            const ctx = lienzo.getContext('2d', { willReadFrequently: true });
-            ctx.drawImage(video, sx, sy, sw, sh, 0, 0, lienzo.width, lienzo.height);
-            if (contraste) {
-              const datos = ctx.getImageData(0, 0, lienzo.width, lienzo.height);
-              const px = datos.data;
-              for (let i = 0; i < px.length; i += 4) {
-                let v = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
-                v = Math.max(0, Math.min(255, (v - 128) * 1.6 + 128));
-                px[i] = px[i + 1] = px[i + 2] = v;
-              }
-              ctx.putImageData(datos, 0, 0);
-            }
-            contraste = !contraste;
-            const resultado = await conLimite(lectorFondo.decodeFromImageUrl(lienzo.toDataURL('image/jpeg', 0.9)), 2500);
-            if (resultado && resultado.getText()) { alLeerCodigo(resultado.getText()); return; }
-          } catch (_) { /* aún no lo encuentra: seguimos */ }
-          finally { ocupado = false; }
-        }
-        bucleFotogramas = setTimeout(vuelta, 700);
-      };
-      bucleFotogramas = setTimeout(vuelta, 900);
-    }
-
-    function pararAnalisisFotogramas() {
-      clearTimeout(bucleFotogramas);
-      bucleFotogramas = null;
-    }
-
     // ---- Botón "Capturar": foto a máxima calidad sin salir de la app ----
     // Usa la foto de alta resolución de la cámara (si el móvil lo permite) o el fotograma actual,
     // y la analiza con los mismos lectores que "Foto al código".
@@ -1109,7 +1050,6 @@
     async function cerrarEscanerCodigo() {
       clearTimeout(consejoCamara);
       pararDetectorNativo();
-      pararAnalisisFotogramas();
       pararRecorteCentral();
       // Parar ZXing (y apagar la cámara)
       const controles = controlesZXing;
