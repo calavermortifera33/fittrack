@@ -432,6 +432,17 @@
 
     <p id="info-modalidad" class="text-[11px] text-slate-400 empty:hidden"></p>
 
+    <!-- NUEVO: SENSACIÓN DEL DÍA. Ajusta la sugerencia de hoy sin culpa (se guarda por fecha). -->
+    <div id="sensacion-dia" class="space-y-1">
+      <p class="text-[11px] text-slate-500">¿Cómo te sientes hoy?</p>
+      <div class="grid grid-cols-4 gap-1">
+        <button data-sensacion="normal" onclick="fijarSensacion('normal')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">😐 Normal</button>
+        <button data-sensacion="tope" onclick="fijarSensacion('tope')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">⚡ A tope</button>
+        <button data-sensacion="cansado" onclick="fijarSensacion('cansado')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">🥱 Cansado</button>
+        <button data-sensacion="agujetas" onclick="fijarSensacion('agujetas')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">💪 Agujetas</button>
+      </div>
+    </div>
+
     <!-- NUEVO: aquí se muestra tu último registro de este ejercicio y qué toca hoy -->
     <div id="ultimo-registro" class="text-[11px]"></div>
 
@@ -2234,7 +2245,9 @@
       if (ultimo) {
         seriesInput.value = ultimo.sets;
         if (ex.modality !== 'calistenia' && ultimo.weight !== null && !isNaN(ultimo.weight)) {
-          const subir = ultimo.reps >= ex.maxReps;
+          // En un día cansado o con agujetas no proponemos subir la carga.
+          const diaMalo = ['cansado', 'agujetas'].includes(sensacionDe(fechaSeleccionada()));
+          const subir = ultimo.reps >= ex.maxReps && !diaMalo;
           pesoInput.value = subir ? +(ultimo.weight + ex.stepKg).toFixed(2) : ultimo.weight;
         }
       }
@@ -2252,10 +2265,12 @@
         caja.innerHTML = `<p class="text-slate-500">Aún no hay registros de este ejercicio.</p>`;
         return;
       }
-      const prog = calcularProgresion(ex, ultimo);
+      const sensacion = sensacionDe(fechaSeleccionada());
+      const prog = ajustarProgresionPorSensacion(ex, ultimo, calcularProgresion(ex, ultimo), sensacion);
       caja.innerHTML = `<div class="bg-slate-800/60 rounded-xl px-3 py-2">
         <p class="text-slate-400">Última vez (${fechaBonita(ultimo.date)}): ${detalleEntreno(ex, ultimo)}</p>
-        <p class="text-emerald-400 font-semibold">${prog.badge}</p>
+        <p class="text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</p>
+        ${sensacion !== 'normal' ? `<p class="text-sky-300">${escaparHTML(prog.tip)}</p>` : ''}
       </div>`;
     }
 
@@ -2373,7 +2388,7 @@
       // MEJORADO: el formulario se prepara para la SIGUIENTE sesión con la
       // recomendación nueva (por ejemplo, +2.5 kg si llegaste al tope de reps).
       actualizarFormularioEjercicio();
-      const prog = calcularProgresion(ex, { weight, reps, sets });
+      const prog = ajustarProgresionPorSensacion(ex, { weight, reps, sets }, calcularProgresion(ex, { weight, reps, sets }), sensacionDe(fechaSeleccionada()));
       aviso.className = 'text-[11px] text-emerald-400';
       aviso.textContent = `Guardado ✓ · ${prog.badge}`;
       iniciarDescanso();   // NUEVO: arranca el descanso
@@ -2492,8 +2507,9 @@
         .map(({ exKey, historial }) => {
           const ex = EXERCISE_DB[exKey];
           const ultimo = historial[0];
-          // La recomendación se calcula SIEMPRE a partir del último registro.
-          const prog = calcularProgresion(ex, ultimo);
+          // La recomendación se calcula SIEMPRE a partir del último registro
+          // y se adapta a cómo te sientes en el día elegido.
+          const prog = ajustarProgresionPorSensacion(ex, ultimo, calcularProgresion(ex, ultimo), sensacionDe(fechaSeleccionada()));
           const modalidad = { pesas: 'Pesas', calistenia: 'Calistenia sin lastre', lastrada: 'Calistenia lastrada' }[ex.modality];
 
           const filas = historial
@@ -2507,10 +2523,10 @@
           return `<div class="bg-slate-800/80 border border-slate-700 rounded-xl p-2 text-xs space-y-0.5">
             <div class="flex justify-between items-center font-semibold text-sm">
               <span>${ex.name}</span>
-              <span class="text-emerald-400 text-xs">${prog.badge}</span>
+              <span class="text-emerald-400 text-xs">${escaparHTML(prog.badge)}</span>
             </div>
             <p class="text-slate-400">${modalidad}</p>
-            <p class="text-sky-300">${prog.tip}</p>
+            <p class="text-sky-300">${escaparHTML(prog.tip)}</p>
             <details class="pt-1">
               <summary class="cursor-pointer text-slate-400">Historial (${historial.length})</summary>
               <ul class="space-y-1 pt-1.5 text-slate-300">${filas}</ul>
@@ -2519,6 +2535,7 @@
         })
         .join('');
 
+      pintarSensacion();                // NUEVO: selector de sensación del día
       mostrarUltimoRegistro();
       pintarCombustibleRendimiento();   // NUEVO
       pintarAgua();
@@ -3216,6 +3233,110 @@
       }
     }
 
+    // ---------- NUEVO: SENSACIÓN DEL DÍA Y COACH DE FATIGA ----------
+    // Guarda cómo te sientes cada día: { "2026-11-27": "cansado" }. Si no marcas nada, es "normal".
+    const SENSACIONES = {
+      normal:   { emoji: '😐', nombre: 'Normal' },
+      tope:     { emoji: '⚡', nombre: 'A tope' },
+      cansado:  { emoji: '🥱', nombre: 'Cansado' },
+      agujetas: { emoji: '💪', nombre: 'Agujetas' }
+    };
+    function leerSensaciones() {
+      try { return JSON.parse(localStorage.getItem('ft4_feeling') || '{}') || {}; } catch (e) { return {}; }
+    }
+    function sensacionDe(fecha) {
+      const s = leerSensaciones()[fecha];
+      return SENSACIONES[s] ? s : 'normal';
+    }
+    function fijarSensacion(valor) {
+      if (!SENSACIONES[valor]) return;
+      const datos = leerSensaciones();
+      const fecha = fechaSeleccionada();
+      if (valor === 'normal') delete datos[fecha]; else datos[fecha] = valor;
+      guardar('ft4_feeling', datos);
+      if (navigator.vibrate) navigator.vibrate(20);
+      // Si aún no has empezado a escribir la serie, recalculamos el peso propuesto
+      // (en un día malo no te propone subir carga).
+      if (!document.getElementById('reps-input').value) actualizarFormularioEjercicio();
+      render();   // repinta el selector, la sugerencia de hoy y las tarjetas
+    }
+    function pintarSensacion() {
+      try {
+        const actual = sensacionDe(fechaSeleccionada());
+        document.querySelectorAll('#sensacion-dia [data-sensacion]').forEach(b => {
+          const activa = b.dataset.sensacion === actual;
+          b.className = 'mini h-8 rounded-lg text-[11px] whitespace-nowrap border ' +
+            (activa ? 'bg-sky-500 text-slate-950 font-semibold' : 'bg-slate-800 border-slate-700 hover:bg-slate-700');
+          b.setAttribute('aria-pressed', activa ? 'true' : 'false');
+        });
+      } catch (e) { /* nada */ }
+    }
+
+    // Adapta la sugerencia base (calcularProgresion, que no se toca) a cómo te sientes hoy.
+    function ajustarProgresionPorSensacion(ex, registro, progBase, sensacion) {
+      try {
+        if (!registro || !progBase || !sensacion || sensacion === 'normal') return progBase;
+        const { reps, sets } = registro;
+        const conCarga = ex.modality === 'pesas' || ex.modality === 'lastrada';
+        const carga = (registro.weight === null || isNaN(registro.weight)) ? 0 : registro.weight;
+        const etiquetaCarga = ex.modality === 'lastrada' ? `+${carga} kg lastre` : `${carga} kg`;
+        const tocabaSubir = reps >= ex.maxReps;
+        const enRango = reps >= ex.minReps && reps < ex.maxReps;
+
+        if (sensacion === 'cansado' || sensacion === 'agujetas') {
+          const motivo = sensacion === 'cansado' ? '🥱 Día cansado' : '💪 Con agujetas';
+          const extra = sensacion === 'agujetas'
+            ? ' Calienta bien; si las agujetas son en estos músculos, baja la intensidad (y si es dolor punzante, para).'
+            : '';
+          const sinCulpa = ' No rompe tu progresión: lo retomas el próximo día bueno.';
+          if (conCarga) {
+            if (tocabaSubir) return {
+              badge: `Hoy: mantener ${etiquetaCarga}`,
+              tip: `${motivo}: tocaba subir, pero hoy mantén ${etiquetaCarga} y haz ${ex.minReps}–${Math.max(ex.minReps, ex.maxReps - 2)} reps limpias (o una serie menos).${sinCulpa}${extra}`
+            };
+            if (enRango) return {
+              badge: `Hoy: consolidar ${etiquetaCarga}`,
+              tip: `${motivo}: mantén ${etiquetaCarga} e intenta igualar tus ${reps} reps, sin buscar más. Si cuesta, ${Math.max(1, sets - 1)} series bastan.${sinCulpa}${extra}`
+            };
+            const menos = ex.modality === 'lastrada'
+              ? (carga > 0 ? `quita algo de lastre (≈ +${Math.max(0, Math.round(carga * 0.8 * 2) / 2)} kg)` : 'hazlo sin lastre')
+              : `baja a ≈ ${Math.round(carga * 0.9 * 2) / 2} kg`;
+            return {
+              badge: `Hoy: técnica con ${etiquetaCarga}`,
+              tip: `${motivo}: si notas mucha fatiga, ${menos} y céntrate en técnica limpia.${sinCulpa}${extra}`
+            };
+          }
+          // Calistenia sin lastre
+          if (tocabaSubir) return {
+            badge: 'Hoy: consolidar',
+            tip: `${motivo}: tocaba subir nivel o serie, pero hoy repite tus ${reps} reps con buena técnica. La variante, otro día.${sinCulpa}${extra}`
+          };
+          if (enRango) return {
+            badge: `Hoy: igualar ${reps} reps`,
+            tip: `${motivo}: no hace falta sumar reps; iguala las de la última vez o haz ${Math.max(1, sets - 1)} series.${sinCulpa}${extra}`
+          };
+          return {
+            badge: 'Hoy: técnica',
+            tip: `${motivo}: series cortas y limpias, sin ir al fallo.${sinCulpa}${extra}`
+          };
+        }
+
+        if (sensacion === 'tope') {
+          const control = ' Con control: si la técnica se rompe, para ahí. Nada de llegar al fallo feo.';
+          if (conCarga && tocabaSubir) return {
+            badge: `${progBase.badge} ⚡`,
+            tip: `⚡ Día a tope: ${progBase.tip} Haz una primera serie de prueba con la carga nueva; si sale fea, vuelve a ${etiquetaCarga}.${control}`
+          };
+          if (enRango) return {
+            badge: `⚡ A por ${ex.maxReps} reps`,
+            tip: `⚡ Día a tope: buen día para acercarte al tope del rango (${ex.maxReps} reps) ${conCarga ? 'con ' + etiquetaCarga : 'sin lastre'}.${control}`
+          };
+          return { badge: `${progBase.badge} ⚡`, tip: `⚡ Día a tope: ${progBase.tip}${control}` };
+        }
+        return progBase;
+      } catch (e) { return progBase; }
+    }
+
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
     // Se guarda por día: { "2026-11-27": 750, ... } y una meta diaria (2000 ml por defecto).
     const META_AGUA_DEFECTO = 2000;
@@ -3299,7 +3420,7 @@
     render();
 
     // ---------- NUEVO: COPIA DE SEGURIDAD ----------
-    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName', 'ft4_voiceEnabled'];
+    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName', 'ft4_voiceEnabled', 'ft4_feeling'];
 
     function exportarDatos() {
       const copia = { app: 'FitTrack', version: 1, fecha: new Date().toISOString(), datos: {} };
@@ -3330,7 +3451,7 @@
         if (!await confirmar('¿Sustituir tus datos actuales por los de esta copia?')) return;
         CLAVES_DATOS.forEach(clave => {
           // Las copias antiguas no traen el agua: en ese caso dejamos la que ya tienes.
-          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName' || clave === 'ft4_voiceEnabled') && !(clave in copia.datos)) return;
+          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName' || clave === 'ft4_voiceEnabled' || clave === 'ft4_feeling') && !(clave in copia.datos)) return;
           const valor = copia.datos[clave];
           if (valor === null || valor === undefined) localStorage.removeItem(clave);
           else localStorage.setItem(clave, JSON.stringify(valor));
