@@ -435,6 +435,9 @@
     <!-- NUEVO: aquí se muestra tu último registro de este ejercicio y qué toca hoy -->
     <div id="ultimo-registro" class="text-[11px]"></div>
 
+    <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
+    <div id="combustible-rendimiento" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug space-y-0.5" aria-live="polite"></div>
+
     <div class="grid grid-cols-3 gap-2">
       <div id="campo-carga">
         <label id="label-carga" class="block text-[11px] text-slate-400 mb-0.5">Peso (kg)</label>
@@ -2517,6 +2520,7 @@
         .join('');
 
       mostrarUltimoRegistro();
+      pintarCombustibleRendimiento();   // NUEVO
       pintarAgua();
     }
 
@@ -3110,6 +3114,108 @@
     pintarBotonVoz();
     document.getElementById('ejercicio-select').addEventListener('change', () => animar('inicio'));
 
+    // ---------- NUEVO: COMBUSTIBLE Y RENDIMIENTO (cruce nutrición + agua + entreno) ----------
+    // Todo con tus datos locales. No inventa: si hay pocos datos, lo dice.
+
+    // Totales de comida de un día.
+    function totalesDelDia(fecha) {
+      return state.foods.filter(f => f.date === fecha).reduce(
+        (a, f) => ({ kcal: a.kcal + (f.kcal || 0), p: a.p + (f.p || 0) }), { kcal: 0, p: 0 });
+    }
+
+    // Rendimiento de un registro: con carga, la fuerza estimada (peso × (1 + reps/30));
+    // sin carga, las reps. Luego se compara con TU media en ese mismo ejercicio.
+    function valorRendimiento(w) {
+      return (w.weight && w.weight > 0) ? w.weight * (1 + w.reps / 30) : w.reps;
+    }
+
+    // Para cada día con entreno: rendimiento relativo (1 = tu media; 1,10 = un 10 % mejor).
+    function rendimientoPorDia() {
+      const porEjercicio = {};
+      state.workouts.forEach(w => { (porEjercicio[w.exKey] = porEjercicio[w.exKey] || []).push(valorRendimiento(w)); });
+      const media = {};
+      Object.entries(porEjercicio).forEach(([k, vals]) => { media[k] = vals.reduce((s, v) => s + v, 0) / vals.length; });
+      const dias = {};
+      state.workouts.forEach(w => {
+        if (!media[w.exKey]) return;
+        (dias[w.date] = dias[w.date] || []).push(valorRendimiento(w) / media[w.exKey]);
+      });
+      return Object.entries(dias).map(([fecha, vals]) => ({ fecha, rel: vals.reduce((s, v) => s + v, 0) / vals.length }));
+    }
+
+    // Compara días "buenos" y "flojos" en un factor (agua, kcal o proteína).
+    function compararGrupo(dias, esBueno, etiquetaBuena, etiquetaFloja) {
+      const buenos = dias.filter(esBueno), flojos = dias.filter(d => !esBueno(d));
+      if (buenos.length < 1 || flojos.length < 1) return null;
+      const m = arr => arr.reduce((s, d) => s + d.rel, 0) / arr.length;
+      const dif = (m(buenos) - m(flojos)) * 100;
+      return { dif, buenos: buenos.length, flojos: flojos.length, etiquetaBuena, etiquetaFloja };
+    }
+
+    function pintarCombustibleRendimiento() {
+      const caja = document.getElementById('combustible-rendimiento');
+      if (!caja) return;
+      try {
+        const fecha = fechaSeleccionada();
+        const esHoy = fecha === hoy();
+        const cuando = esHoy ? 'hoy' : fechaBonita(fecha);
+        const linea = (txt, clase = 'text-slate-300') => {
+          const p = document.createElement('p');
+          p.className = clase;
+          p.textContent = txt;
+          return p;
+        };
+        caja.innerHTML = '';
+        caja.appendChild(linea(`⛽ Combustible y rendimiento (${cuando})`, 'text-xs font-semibold text-slate-200'));
+
+        // 1) Agua
+        const ml = leerAgua()[fecha] || 0, meta = metaAgua();
+        const pctAgua = Math.round(ml / meta * 100);
+        if (pctAgua >= 100) caja.appendChild(linea(`💧 ${ml}/${meta} ml · ✓ Bien hidratado.`, 'text-emerald-400'));
+        else if (pctAgua >= 50) caja.appendChild(linea(`💧 ${ml}/${meta} ml (${pctAgua} %) · Vas bien; sigue bebiendo.`));
+        else caja.appendChild(linea(`💧 ${ml}/${meta} ml (${pctAgua} %) · Vas corto de agua: bebe un vaso antes de entrenar.`, 'text-amber-300'));
+
+        // 2) Energía y proteína
+        const t = totalesDelDia(fecha);
+        const pctK = Math.round(t.kcal / TARGETS.kcal * 100), pctP = Math.round(t.p / TARGETS.p * 100);
+        const entrenos = state.workouts.filter(w => w.date === fecha).length;
+        let estado;
+        if (!t.kcal) estado = entrenos ? 'Has entrenado sin comidas apuntadas: recupera con proteína.' : 'Sin comidas apuntadas aún.';
+        else if (pctP < 50) estado = entrenos ? 'Proteína baja tras entrenar: añade una toma proteica.' : 'Proteína baja: mete algo proteico.';
+        else if (pctK < 40 && !entrenos) estado = 'Poca energía para entrenar fuerte: come algo antes.';
+        else estado = entrenos ? 'Buen combustible para recuperar.' : 'Buen combustible para entrenar.';
+        caja.appendChild(linea(`🔥 ${Math.round(t.kcal)}/${TARGETS.kcal} kcal (${pctK} %) · 🥩 P ${Math.round(t.p)}/${TARGETS.p} g (${pctP} %) · ${estado}`));
+
+        // 3) Patrón personal (mínimo 3 días con entreno)
+        const dias = rendimientoPorDia().map(d => {
+          const tt = totalesDelDia(d.fecha);
+          return { ...d, agua: (leerAgua()[d.fecha] || 0) / meta, kcal: tt.kcal / TARGETS.kcal, p: tt.p / TARGETS.p, hayComida: tt.kcal > 0 };
+        });
+        if (dias.length < 3) {
+          caja.appendChild(linea(`📈 Patrón: aún pocos datos (${dias.length} de 3 días con entreno). Sigue apuntando agua, comidas y series.`, 'text-slate-500'));
+          return;
+        }
+        const conComida = dias.filter(d => d.hayComida);
+        const candidatos = [
+          compararGrupo(dias, d => d.agua >= 0.75, 'que bebes ≥75 % de tu agua', 'que bebes menos'),
+          conComida.length >= 3 ? compararGrupo(conComida, d => d.p >= 0.8, 'con proteína ≥80 %', 'con menos proteína') : null,
+          conComida.length >= 3 ? compararGrupo(conComida, d => d.kcal >= 0.8, 'con kcal ≥80 %', 'comiendo menos') : null
+        ].filter(Boolean).filter(c => Math.abs(c.dif) >= 8);   // solo diferencias claras (≥8 %)
+        if (!candidatos.length) {
+          caja.appendChild(linea(`📈 Patrón: con ${dias.length} días de entreno no veo una diferencia clara todavía.`, 'text-slate-500'));
+          return;
+        }
+        const mejor = candidatos.sort((a, b) => Math.abs(b.dif) - Math.abs(a.dif))[0];
+        const dif = Math.round(Math.abs(mejor.dif));
+        const texto = mejor.dif > 0
+          ? `📈 Tu patrón: los días ${mejor.etiquetaBuena} rindes ~${dif} % más que los días ${mejor.etiquetaFloja} (${mejor.buenos} vs ${mejor.flojos} días).`
+          : `📈 Curioso: los días ${mejor.etiquetaFloja} rindes ~${dif} % más (${mejor.flojos} vs ${mejor.buenos} días). Con más datos se verá mejor.`;
+        caja.appendChild(linea(texto, 'text-sky-300'));
+      } catch (e) {
+        caja.textContent = '⛽ No se pudo calcular el resumen ahora mismo.';
+      }
+    }
+
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
     // Se guarda por día: { "2026-11-27": 750, ... } y una meta diaria (2000 ml por defecto).
     const META_AGUA_DEFECTO = 2000;
@@ -3141,6 +3247,7 @@
       const barra = document.getElementById('agua-barra');
       barra.style.width = pct + '%';
       barra.className = 'h-full rounded-full transition-all duration-300 ' + (conseguido ? 'bg-emerald-400' : 'bg-sky-400');
+      pintarCombustibleRendimiento();   // NUEVO: el panel de Entreno se actualiza al sumar agua
     }
     function alternarMetaAgua() {
       const caja = document.getElementById('agua-meta-caja');
