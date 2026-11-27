@@ -175,6 +175,14 @@
     }
     html body .bg-sky-500 *, html body .bg-emerald-500 *, html body #btn-voz[aria-pressed="true"] * { color: inherit !important; }
     html body #btn-voz[aria-pressed="true"] { border-color: rgba(255, 255, 255, 0.6); font-weight: 600; }
+    /* Activos (pestaña Entreno/Nutrición, A tope, Voz…): fondo perla opaco y texto oscuro en negrita */
+    html body #tab-nutri.bg-sky-500, html body #tab-entreno.bg-emerald-500,
+    html body #sensacion-dia [aria-pressed="true"], html body #btn-voz[aria-pressed="true"] {
+      background: #f1f5f9 !important;
+      color: #0f172a !important;
+      font-weight: 700;
+      text-shadow: none;
+    }
     html body #btn-voz[aria-pressed="true"]:hover { background: #ffffff; }
 
     /* 2) Paneles internos sin bordes redundantes: velos suaves integrados en la tarjeta */
@@ -185,6 +193,10 @@
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     html body section details > summary { padding-top: 2px; padding-bottom: 2px; }
+    /* Dentro de los desplegables, los bloques no repiten fondo (el velo ya lo pone el desplegable) */
+    html body #bloque-escaner, html body #que-como-ahora, html body #radar-constancia, html body #combustible-rendimiento {
+      background: transparent; box-shadow: none; border-color: transparent;
+    }
 
     /* Nada se sale por la derecha en pantallas estrechas (desplegables con nombres largos) */
     html body select, html body input:not([type="file"]) { max-width: 100%; }
@@ -229,7 +241,7 @@
   </nav>
 
   <!-- BLOQUE 1: NUTRICIÓN / MACROS -->
-  <section id="seccion-nutri" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-2.5">
+  <section id="seccion-nutri" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-2">
     <div class="flex justify-between items-center">
       <h2 id="titulo-nutricion" class="text-sm font-semibold text-sky-300">Macros (hoy)</h2>
       <span id="resumen-kcal" class="text-sm font-bold text-sky-400">0 / 2400 kcal</span>
@@ -239,7 +251,10 @@
          1) Código de barras con la cámara o escrito a mano -> Open Food Facts.
          2) Buscador por nombre -> Open Food Facts (toca un resultado para usarlo).
          3) Foto de la TABLA NUTRICIONAL impresa -> apoyo para revisar/rellenar. -->
-    <div id="bloque-escaner" class="scroll-mt-14 space-y-1.5 bg-slate-800/60 border border-slate-700 rounded-xl p-2">
+    <!-- NUEVO: desplegable cerrado por defecto. Se abre solo si una cámara o un aviso lo necesita. -->
+    <details id="desplegable-escaner" class="scroll-mt-14 bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">🔍 Escanear o buscar alimento</summary>
+    <div id="bloque-escaner" class="scroll-mt-14 space-y-1.5 pt-1.5 pb-1">
 
       <!-- PRIMERA FILA: los 3 accesos rápidos de cámara/escáner -->
       <div class="grid grid-cols-3 gap-2">
@@ -312,6 +327,7 @@
 
       <p id="estado-escaner" class="text-[11px] text-slate-400 empty:hidden"></p>
     </div>
+    </details>
 
 
     <!-- NUEVO: barras de progreso para kcal, proteínas, carbos y grasas -->
@@ -319,7 +335,10 @@
     <!-- NUEVO: lo que te queda para llegar a tus objetivos del día -->
     <p id="margen-dia" class="text-[11px] leading-tight"></p>
     <!-- NUEVO: ¿QUÉ COMO AHORA? Sugerencias según lo que te falta hoy (tus alimentos, sin internet) -->
-    <div id="que-como-ahora" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 space-y-1"></div>
+    <details id="desplegable-que-como" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="que-como-resumen" class="cursor-pointer text-xs text-sky-300 font-semibold">🍽️ ¿Qué como ahora?</summary>
+      <div id="que-como-ahora" class="space-y-1 pt-1 pb-0.5"></div>
+    </details>
 
     <!-- NUEVO: MEDIDOR DE AGUA del día elegido. Suma de un toque con los botones rápidos. -->
     <div id="bloque-agua" class="bg-sky-950/40 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
@@ -389,7 +408,7 @@
       <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
            así aparecen tanto los alimentos de base como los tuyos. -->
       <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm"></select>
-      <input id="gramos-input" type="number" inputmode="decimal" placeholder="g" min="1" class="min-w-0 w-16 sm:w-20 shrink-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+      <input id="gramos-input" type="number" inputmode="decimal" placeholder="g" min="1" class="min-w-0 w-20 sm:w-24 shrink-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm text-center" />
       <button onclick="addFood()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-1.5 rounded-xl text-sm">
         +
       </button>
@@ -465,7 +484,7 @@
   </section>
 
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
-  <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-3">
+  <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-2">
     <h2 class="text-sm font-semibold text-emerald-300">Entrenamiento y Progresión <span class="text-[11px] text-slate-500 font-normal">pesas · calistenia · lastrada</span></h2>
     <!-- NUEVO: tu nombre (para los mensajes de ánimo). Se guarda en este móvil. -->
     <div class="flex items-center gap-1.5">
@@ -516,16 +535,7 @@
     <!-- NUEVO: aquí se muestra tu último registro de este ejercicio y qué toca hoy -->
     <div id="ultimo-registro" class="text-[11px]"></div>
 
-    <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
-    <div id="radar-constancia" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug space-y-0.5"></div>
-    <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
-    <div id="combustible-rendimiento" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug space-y-0.5" aria-live="polite"></div>
-    <!-- NUEVO: RÉCORDS PERSONALES: tus mejores marcas por ejercicio (se celebran al batirlas) -->
-    <details id="records-personales" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="records-titulo" class="cursor-pointer text-xs text-amber-300 font-semibold">🏆 Mis récords</summary>
-      <ul id="lista-records" class="space-y-0.5 pt-1 text-[11px]"></ul>
-    </details>
-
+    <!-- MOVIDO ARRIBA: Peso / Series / Reps y Guardar, visibles sin bajar -->
     <div class="grid grid-cols-3 gap-2">
       <div id="campo-carga">
         <label id="label-carga" class="block text-[11px] text-slate-400 mb-0.5">Peso (kg)</label>
@@ -564,6 +574,23 @@
         <button onclick="cerrarDescanso()" title="Parar y cerrar" class="mini h-8 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">✕</button>
       </div>
     </div>
+
+    <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
+    <details id="desplegable-radar" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="radar-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">📡 Radar de constancia</summary>
+      <div id="radar-constancia" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5"></div>
+    </details>
+    <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
+    <details id="desplegable-combustible" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="combustible-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">⛽ Combustible y rendimiento</summary>
+      <div id="combustible-rendimiento" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5" aria-live="polite"></div>
+    </details>
+    <!-- NUEVO: RÉCORDS PERSONALES: tus mejores marcas por ejercicio (se celebran al batirlas) -->
+    <details id="records-personales" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="records-titulo" class="cursor-pointer text-xs text-amber-300 font-semibold">🏆 Mis récords</summary>
+      <ul id="lista-records" class="space-y-0.5 pt-1 text-[11px]"></ul>
+    </details>
+
 
     <!-- NUEVO: IA DE POSTURA Y REPETICIONES (opcional). No carga cámara ni IA hasta que lo abres.
          Todo se analiza en tu móvil: el vídeo no sale de él. -->
@@ -1101,7 +1128,12 @@
     // =====================================================================
 
     // Muestra un mensaje debajo del escáner. tipo: 'info' | 'ok' | 'error'
+    // NUEVO: abre el desplegable del escáner (si estaba cerrado) para que veas la cámara o el aviso.
+    function abrirDesplegableEscaner() {
+      try { const d = document.getElementById('desplegable-escaner'); if (d && !d.open) d.open = true; } catch (e) { /* nada */ }
+    }
     function avisoEscaner(texto, tipo = 'info') {
+      if (texto) abrirDesplegableEscaner();
       const colores = { info: 'text-slate-400', ok: 'text-emerald-400', error: 'text-rose-400' };
       const estado = document.getElementById('estado-escaner');
       estado.className = 'text-[11px] ' + colores[tipo];
@@ -1197,6 +1229,7 @@
       if (fresco.corriendo) cerrarCamaraFresco();  // una cámara cada vez
 
       yaLeido = false;
+      abrirDesplegableEscaner();
       document.getElementById('zona-camara').classList.remove('hidden');
       // La cámara queda arriba del todo en pantalla.
       document.getElementById('bloque-escaner').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2080,6 +2113,7 @@
       }
       if (lectorCodigo || controlesZXing) await cerrarEscanerCodigo();   // una cámara cada vez
       document.getElementById('resultados-busqueda').innerHTML = '';
+      abrirDesplegableEscaner();
       document.getElementById('zona-fresco').classList.remove('hidden');
       document.getElementById('bloque-escaner').scrollIntoView({ behavior: 'smooth', block: 'start' });
       document.getElementById('fresco-chips').innerHTML = '';
@@ -3290,10 +3324,13 @@
           return p;
         };
         caja.innerHTML = '';
-        caja.appendChild(linea(`⛽ Combustible y rendimiento (${cuando})`, 'text-xs font-semibold text-slate-200'));
-
         // 1) Agua
         const ml = leerAgua()[fecha] || 0, meta = metaAgua();
+        try {
+          const resumen = document.getElementById('combustible-resumen');
+          const kcalDia = Math.round(state.foods.filter(f => f.date === fecha).reduce((s, f) => s + f.kcal, 0));
+          if (resumen) resumen.textContent = `⛽ Combustible${esHoy ? '' : ' (' + cuando + ')'}: ${ml} ml · ${kcalDia} kcal`;
+        } catch (e) { /* nada */ }
         const pctAgua = Math.round(ml / meta * 100);
         if (pctAgua >= 100) caja.appendChild(linea(`💧 ${ml}/${meta} ml · ✓ Bien hidratado.`, 'text-emerald-400'));
         else if (pctAgua >= 50) caja.appendChild(linea(`💧 ${ml}/${meta} ml (${pctAgua} %) · Vas bien; sigue bebiendo.`));
@@ -3712,7 +3749,9 @@
         const linea = (txt, clase = 'text-slate-300') => {
           const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p); return p;
         };
-        linea('📡 Radar de constancia (últimos 7 días)', 'text-xs font-semibold text-slate-200');
+        const resumen = document.getElementById('radar-resumen');
+        if (resumen) resumen.textContent = `📡 Radar: ${entrenados.length}/7 días · ${series} series` + (racha > 1 ? ` · racha ${racha}` : '');
+        linea('Últimos 7 días:', 'text-slate-500');
 
         // Fila de 7 puntitos con la inicial del día
         const fila = document.createElement('div');
