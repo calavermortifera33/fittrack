@@ -145,6 +145,9 @@
     html body .border-emerald-500 { border-color: rgba(255, 255, 255, 0.5); }
     html body .border-sky-900 { border-color: rgba(255, 255, 255, 0.14); }
     /* Aviso de ánimo flotante: cristal un poco más opaco para leerse bien sobre cualquier cosa */
+    /* NUEVO: pequeño "pop" al batir un récord */
+    @keyframes recordPop { 0% { transform: scale(.9); opacity: .4; } 50% { transform: scale(1.06); } 100% { transform: scale(1); opacity: 1; } }
+    html body .record-pop { display: inline-block; animation: recordPop .6s ease-out; text-shadow: 0 0 12px rgba(252, 211, 77, .45); }
     html body #animo {
       position: fixed;
       z-index: 50;
@@ -354,6 +357,12 @@
     </div>
     <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
 
+    <!-- NUEVO: MI SEMANA: medias de 7 días, constancia de proteína, kcal y agua -->
+    <details id="resumen-semana" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
+      <summary id="resumen-semana-titulo" class="cursor-pointer text-xs text-sky-300 font-semibold">📊 Mi semana</summary>
+      <div id="resumen-semana-nutri" class="space-y-0.5 pt-1 text-[11px] leading-snug"></div>
+    </details>
+
     <!-- NUEVO: COMIDAS RÁPIDAS / COMBOS. Guarda las comidas de un día y repítelas de un toque. -->
     <details id="combos-rapidos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
       <summary id="combos-titulo" class="cursor-pointer text-xs text-sky-300 font-semibold">⚡ Comidas rápidas (combos)</summary>
@@ -467,6 +476,11 @@
     <div id="radar-constancia" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug space-y-0.5"></div>
     <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
     <div id="combustible-rendimiento" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug space-y-0.5" aria-live="polite"></div>
+    <!-- NUEVO: RÉCORDS PERSONALES: tus mejores marcas por ejercicio (se celebran al batirlas) -->
+    <details id="records-personales" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="records-titulo" class="cursor-pointer text-xs text-amber-300 font-semibold">🏆 Mis récords</summary>
+      <ul id="lista-records" class="space-y-0.5 pt-1 text-[11px]"></ul>
+    </details>
 
     <div class="grid grid-cols-3 gap-2">
       <div id="campo-carga">
@@ -2389,6 +2403,9 @@
         return;
       }
 
+      // NUEVO: récord personal (se compara con tus registros anteriores de este ejercicio)
+      const record = detectarRecord(ex, { weight, reps, sets }, state.workouts.filter(w => w.exKey === exKey));
+
       // NUEVO: en vez de sustituir el registro anterior, AÑADIMOS uno nuevo.
       // Así se va formando el historial.
       state.workouts.push({
@@ -2411,7 +2428,8 @@
       aviso.className = 'text-[11px] text-emerald-400';
       aviso.textContent = `Guardado ✓ · ${prog.badge}`;
       iniciarDescanso();   // NUEVO: arranca el descanso
-      animar('serie');     // NUEVO: mensaje de ánimo
+      if (record) celebrarRecord(record);   // NUEVO: ¡récord personal!
+      else animar('serie');                  // NUEVO: mensaje de ánimo
     }
 
     // NUEVO: borrar una comida o un entreno (pide confirmación antes).
@@ -2560,6 +2578,8 @@
       mostrarUltimoRegistro();
       pintarCombustibleRendimiento();   // NUEVO
       try { pintarRadarConstancia(); } catch (e) { /* nunca rompe render */ }
+      try { pintarRecords(); } catch (e) { /* nunca rompe render */ }
+      try { pintarResumenSemanalNutri(); } catch (e) { /* nunca rompe render */ }
       pintarAgua();
     }
 
@@ -3064,6 +3084,7 @@
       sinVoz: ['Este navegador no permite leer en voz alta.'],
       inicio: ['¡Vamos{n}! A por todas. 💪', '¡Vamos{n}! Hoy toca superarse.', '¡A por ello{n}! Técnica y constancia.'],
       serie:  ['¡Bien hecho{n}! Serie registrada. ✅', '¡Bien hecho{n}! Una más en el saco.', '¡Así se hace{n}! Serie guardada.'],
+      record: ['¡Nuevo récord personal{n}! 🏆 Eres una máquina.', '¡Récord batido{n}! 🏆 Tu mejor marca hasta hoy.', '¡Brutal{n}! 🏆 Nuevo récord personal.'],
       fin:    ['¡Has terminado el descanso{n}! Gran trabajo, a por la siguiente. 🔥', '¡Has terminado{n}! Gran trabajo: siguiente serie.']
     };
     let temporizadorAnimo = null;
@@ -3687,6 +3708,146 @@
         }
       } catch (e) {
         caja.textContent = '📡 No se pudo calcular el radar ahora mismo.';
+      }
+    }
+
+    // ---------- NUEVO: RÉCORDS PERSONALES (con celebración) ----------
+    // Pesas: récord de peso o de fuerza estimada (1RM ≈ peso × (1 + reps/30)).
+    // Lastrada: récord de lastre, o más reps con el mismo lastre o más.
+    // Calistenia: récord de reps en una serie.
+    function unoRM(w) { return (w.weight || 0) * (1 + (w.reps || 0) / 30); }
+    function mejorDe(lista, ex) {
+      if (!lista.length) return null;
+      const mejor = { peso: null, reps: null, rm: null };
+      lista.forEach(w => {
+        if (ex.modality === 'calistenia') {
+          if (!mejor.reps || w.reps > mejor.reps.reps) mejor.reps = w;
+        } else {
+          if (!mejor.peso || w.weight > mejor.peso.weight || (w.weight === mejor.peso.weight && w.reps > mejor.peso.reps)) mejor.peso = w;
+          if (!mejor.rm || unoRM(w) > unoRM(mejor.rm)) mejor.rm = w;
+        }
+      });
+      return mejor;
+    }
+    // Devuelve el texto del récord que acabas de batir (o null si no hay récord).
+    function detectarRecord(ex, nuevo, previos) {
+      try {
+        if (!ex || !previos.length) return null;   // el primer registro no cuenta como récord
+        const antes = mejorDe(previos, ex);
+        if (ex.modality === 'calistenia') {
+          return nuevo.reps > antes.reps.reps ? `Récord de reps: ${nuevo.reps} (antes ${antes.reps.reps})` : null;
+        }
+        if (isNaN(nuevo.weight)) return null;
+        if (nuevo.weight > antes.peso.weight) {
+          return `Récord de ${ex.modality === 'lastrada' ? 'lastre' : 'peso'}: ${nuevo.weight} kg (antes ${antes.peso.weight} kg)`;
+        }
+        if (ex.modality === 'lastrada') {
+          const mismas = previos.filter(w => w.weight >= nuevo.weight);
+          const tope = Math.max(...mismas.map(w => w.reps));
+          return mismas.length && nuevo.reps > tope ? `Récord: ${nuevo.reps} reps con +${nuevo.weight} kg (antes ${tope})` : null;
+        }
+        const rmNuevo = unoRM(nuevo), rmAntes = unoRM(antes.rm);
+        return rmNuevo > rmAntes + 0.05 ? `Récord de fuerza: 1RM estimado ${rmNuevo.toFixed(1)} kg (antes ${rmAntes.toFixed(1)})` : null;
+      } catch (e) { return null; }
+    }
+    function celebrarRecord(texto) {
+      try {
+        const aviso = document.getElementById('aviso-entreno');
+        aviso.className = 'text-[11px] text-amber-300 font-semibold record-pop';
+        aviso.textContent = `🏆 ${texto}`;
+        if (navigator.vibrate) navigator.vibrate([80, 60, 80, 60, 160]);
+        animar('record');
+      } catch (e) { /* nada */ }
+    }
+    function pintarRecords() {
+      const lista = document.getElementById('lista-records');
+      const titulo = document.getElementById('records-titulo');
+      if (!lista || !titulo) return;
+      try {
+        lista.innerHTML = '';
+        let n = 0;
+        Object.keys(EXERCISE_DB).forEach(k => {
+          const ex = EXERCISE_DB[k];
+          const regs = state.workouts.filter(w => w.exKey === k);
+          const m = mejorDe(regs, ex);
+          if (!m) return;
+          n++;
+          const fila = document.createElement('li');
+          fila.className = 'flex justify-between gap-2 min-w-0';
+          const nombre = document.createElement('span');
+          nombre.className = 'truncate text-slate-300';
+          nombre.textContent = ex.name;
+          const dato = document.createElement('span');
+          dato.className = 'shrink-0 text-amber-200';
+          if (ex.modality === 'calistenia') {
+            dato.textContent = `${m.reps.reps} reps · ${fechaBonita(m.reps.date)}`;
+          } else {
+            const extra = ex.modality === 'pesas' ? ` · 1RM≈${unoRM(m.rm).toFixed(0)}` : '';
+            dato.textContent = `${ex.modality === 'lastrada' ? '+' : ''}${m.peso.weight} kg × ${m.peso.reps}${extra}`;
+            dato.title = fechaBonita(m.peso.date);
+          }
+          fila.append(nombre, dato);
+          lista.appendChild(fila);
+        });
+        titulo.textContent = `🏆 Mis récords${n ? ` (${n})` : ''}`;
+        if (!n) {
+          const vacio = document.createElement('li');
+          vacio.className = 'text-slate-500';
+          vacio.textContent = 'Registra series y aquí aparecerán tus mejores marcas.';
+          lista.appendChild(vacio);
+        }
+      } catch (e) {
+        lista.textContent = 'No se pudieron calcular los récords.';
+      }
+    }
+
+    // ---------- NUEVO: MI SEMANA EN NUTRICIÓN (7 días hasta la fecha elegida) ----------
+    function pintarResumenSemanalNutri() {
+      const caja = document.getElementById('resumen-semana-nutri');
+      const titulo = document.getElementById('resumen-semana-titulo');
+      if (!caja || !titulo) return;
+      try {
+        const fecha = fechaSeleccionada();
+        const dias = [fecha];
+        for (let i = 0; i < 6; i++) dias.unshift(diaAnterior(dias[0]));
+        const agua = leerAgua(), meta = metaAgua();
+        const datos = dias.map(d => {
+          const comidas = state.foods.filter(f => f.date === d);
+          return {
+            d, apuntado: comidas.length > 0,
+            kcal: comidas.reduce((s, f) => s + f.kcal, 0),
+            p: comidas.reduce((s, f) => s + f.p, 0),
+            agua: agua[d] || 0
+          };
+        });
+        const conDatos = datos.filter(x => x.apuntado);
+        caja.innerHTML = '';
+        const linea = (txt, clase = 'text-slate-300') => {
+          const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p);
+        };
+        if (!conDatos.length) {
+          titulo.textContent = '📊 Mi semana';
+          linea('Apunta tus comidas unos días y aquí verás tus medias y tu constancia.', 'text-slate-500');
+          return;
+        }
+        const media = k => conDatos.reduce((s, x) => s + x[k], 0) / conDatos.length;
+        const diasProte = conDatos.filter(x => x.p >= TARGETS.p * 0.9).length;
+        const diasKcal = conDatos.filter(x => Math.abs(x.kcal - TARGETS.kcal) <= TARGETS.kcal * 0.1).length;
+        const diasAgua = datos.filter(x => x.agua >= meta).length;
+        titulo.textContent = `📊 Mi semana · proteína ${diasProte}/7 días`;
+        linea(`Media (${conDatos.length} días apuntados): ${Math.round(media('kcal'))} kcal · ${Math.round(media('p'))} g proteína`);
+        linea(`🎯 Proteína ≥90 %: ${diasProte}/7 · Kcal en objetivo (±10 %): ${diasKcal}/7 · 💧 Agua cumplida: ${diasAgua}/7`);
+        // Consejo: el punto más flojo de la semana
+        let consejo;
+        if (conDatos.length < 4) consejo = '💡 Apunta más días para que la media sea fiable.';
+        else if (diasProte < 4) consejo = '💡 Tu punto a mejorar es la proteína: añade una ración en la comida que más flojea.';
+        else if (diasAgua < 4) consejo = '💡 Te falta agua varios días: deja una botella a la vista.';
+        else if (media('kcal') > TARGETS.kcal * 1.1) consejo = '💡 De media te pasas de kcal: recorta un poco grasas o picoteo.';
+        else if (media('kcal') < TARGETS.kcal * 0.85) consejo = '💡 De media te quedas corto de kcal: para rendir y progresar, come algo más.';
+        else consejo = '✅ Semana muy sólida. ¡Sigue así!';
+        linea(consejo, consejo.startsWith('✅') ? 'text-emerald-400' : 'text-sky-300');
+      } catch (e) {
+        caja.textContent = 'No se pudo calcular el resumen ahora mismo.';
       }
     }
 
