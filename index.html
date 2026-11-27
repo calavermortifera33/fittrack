@@ -162,6 +162,43 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
     }
     html body #btn-voz[aria-pressed="true"] { background: rgba(241, 245, 249, 0.92); color: #0f172a; }
+
+    /* =========================================================
+       PULIDO VISUAL: contraste, menos rayas, más aire, campos limpios
+       ========================================================= */
+    /* 1) Todo botón/pestaña activo con fondo claro (blanco perla) lleva texto e iconos OSCUROS */
+    html body .bg-sky-500, html body .bg-emerald-500, html body .text-slate-950,
+    html body button[aria-pressed="true"].bg-sky-500, html body #btn-voz[aria-pressed="true"],
+    html body #tab-nutri.bg-sky-500, html body #tab-entreno.bg-emerald-500 {
+      color: #0f172a !important;
+    }
+    html body .bg-sky-500 *, html body .bg-emerald-500 *, html body #btn-voz[aria-pressed="true"] * { color: inherit !important; }
+    html body #btn-voz[aria-pressed="true"] { border-color: rgba(255, 255, 255, 0.6); font-weight: 600; }
+    html body #btn-voz[aria-pressed="true"]:hover { background: #ffffff; }
+
+    /* 2) Paneles internos sin bordes redundantes: velos suaves integrados en la tarjeta */
+    html body #radar-constancia, html body #combustible-rendimiento, html body #records-personales,
+    html body #bloque-escaner, html body #que-como-ahora, html body section details {
+      border-color: transparent;
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    html body section details > summary { padding-top: 2px; padding-bottom: 2px; }
+
+    /* 3) Peso, Series y Reps: sin flechas nativas, número limpio y centrado */
+    html body #peso-input, html body #series-input, html body #reps-input {
+      -webkit-appearance: none;
+      -moz-appearance: textfield;
+      appearance: none;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    html body #peso-input::-webkit-outer-spin-button, html body #peso-input::-webkit-inner-spin-button,
+    html body #series-input::-webkit-outer-spin-button, html body #series-input::-webkit-inner-spin-button,
+    html body #reps-input::-webkit-outer-spin-button, html body #reps-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen min-h-[100svh] w-full max-w-md mx-auto px-3 sm:px-4 py-3">
@@ -185,7 +222,7 @@
   </nav>
 
   <!-- BLOQUE 1: NUTRICIÓN / MACROS -->
-  <section id="seccion-nutri" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-1.5">
+  <section id="seccion-nutri" class="bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-2.5">
     <div class="flex justify-between items-center">
       <h2 id="titulo-nutricion" class="text-sm font-semibold text-sky-300">Macros (hoy)</h2>
       <span id="resumen-kcal" class="text-sm font-bold text-sky-400">0 / 2400 kcal</span>
@@ -421,7 +458,7 @@
   </section>
 
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
-  <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-2">
+  <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-3">
     <h2 class="text-sm font-semibold text-emerald-300">Entrenamiento y Progresión <span class="text-[11px] text-slate-500 font-normal">pesas · calistenia · lastrada</span></h2>
     <!-- NUEVO: tu nombre (para los mensajes de ánimo). Se guarda en este móvil. -->
     <div class="flex items-center gap-1.5">
@@ -485,15 +522,15 @@
     <div class="grid grid-cols-3 gap-2">
       <div id="campo-carga">
         <label id="label-carga" class="block text-[11px] text-slate-400 mb-0.5">Peso (kg)</label>
-        <input id="peso-input" type="number" step="0.5" placeholder="20" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <input id="peso-input" type="number" step="0.5" placeholder="20" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-center appearance-none" />
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-0.5">Series</label>
-        <input id="series-input" type="number" placeholder="3" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <input id="series-input" type="number" placeholder="3" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-center appearance-none" />
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-0.5">Reps</label>
-        <input id="reps-input" type="number" placeholder="10" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <input id="reps-input" type="number" placeholder="10" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-center appearance-none" />
       </div>
     </div>
 
@@ -2462,7 +2499,7 @@
       const pct = Math.min(100, Math.round((valor / objetivo) * 100));
       const valorTexto = unidad === 'kcal' ? Math.round(valor) : valor.toFixed(1);
       return `<div class="min-w-0">
-        <div class="flex justify-between gap-1 text-[10px] leading-tight text-slate-400">
+        <div class="flex justify-between gap-1 text-[11px] leading-tight text-slate-400">
           <span class="truncate">${nombre}</span><span class="shrink-0">${valorTexto}/${objetivo} ${unidad}</span>
         </div>
         <div class="h-1 mt-0.5 bg-slate-800 rounded-full overflow-hidden">
@@ -3658,7 +3695,7 @@
           const [a, m, dd] = x.split('-').map(Number);
           const celda = document.createElement('div');
           const hecho = !!porDia[x], malo = sens[x] === 'cansado' || sens[x] === 'agujetas';
-          celda.className = 'text-center rounded-md py-0.5 text-[10px] border ' +
+          celda.className = 'text-center rounded-md py-0.5 text-[11px] border ' +
             (hecho ? 'bg-white/80 text-slate-900 border-white/60 font-semibold' : 'bg-white/5 text-slate-400 border-white/10') +
             (x === fecha ? ' ring-1 ring-white/60' : '');
           celda.textContent = letras[new Date(a, m - 1, dd).getDay()] + (malo ? '·' : '');
