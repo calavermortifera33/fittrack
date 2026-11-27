@@ -484,18 +484,8 @@
   </section>
 
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
-  <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-2">
+  <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-1.5">
     <h2 class="text-sm font-semibold text-emerald-300">Entrenamiento y Progresión <span class="text-[11px] text-slate-500 font-normal">pesas · calistenia · lastrada</span></h2>
-    <!-- NUEVO: tu nombre (para los mensajes de ánimo). Se guarda en este móvil. -->
-    <div class="flex items-center gap-1.5">
-      <label for="nombre-usuario" class="text-xs text-slate-500 shrink-0">👤</label>
-      <input id="nombre-usuario" type="text" maxlength="20" autocomplete="given-name" placeholder="Tu nombre (para darte ánimos)"
-        onchange="guardarNombre()" onkeydown="if (event.key === 'Enter') this.blur()"
-        class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-xs" />
-      <!-- NUEVO: voz para los ánimos (activada por defecto; un toque la apaga) -->
-      <button id="btn-voz" onclick="alternarVoz()" title="Leer los ánimos en voz alta (🔊 activada / 🔇 desactivada)" aria-pressed="true"
-        class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap">🔊 Voz</button>
-    </div>
     <!-- NUEVO: mensaje de ánimo. Flota justo bajo las pestañas para que lo veas aunque hayas bajado
          (no ocupa sitio ni bloquea toques: se puede pulsar a través de él). -->
     <p id="animo" class="hidden fixed z-50 left-1/2 -translate-x-1/2 w-[min(92vw,26rem)] pointer-events-none text-center text-sm font-semibold text-slate-100 rounded-xl px-3 py-2 transition-opacity duration-300" aria-live="polite"></p>
@@ -519,18 +509,7 @@
       </optgroup>
     </select>
 
-    <p id="info-modalidad" class="text-[11px] text-slate-400 empty:hidden"></p>
 
-    <!-- NUEVO: SENSACIÓN DEL DÍA. Ajusta la sugerencia de hoy sin culpa (se guarda por fecha). -->
-    <div id="sensacion-dia" class="space-y-1">
-      <p class="text-[11px] text-slate-500">¿Cómo te sientes hoy?</p>
-      <div class="grid grid-cols-2 gap-2">
-        <button data-sensacion="normal" onclick="fijarSensacion('normal')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">😐 Normal</button>
-        <button data-sensacion="tope" onclick="fijarSensacion('tope')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">⚡ A tope</button>
-        <button data-sensacion="cansado" onclick="fijarSensacion('cansado')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">🥱 Cansado</button>
-        <button data-sensacion="agujetas" onclick="fijarSensacion('agujetas')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">💪 Agujetas</button>
-      </div>
-    </div>
 
     <!-- NUEVO: aquí se muestra tu último registro de este ejercicio y qué toca hoy -->
     <div id="ultimo-registro" class="text-[11px]"></div>
@@ -558,7 +537,7 @@
     <p id="aviso-entreno" class="text-[11px] text-slate-400 empty:hidden"></p>
 
     <!-- NUEVO: CRONÓMETRO DE DESCANSO. Arranca solo al guardar una serie. -->
-    <div id="descanso" class="hidden bg-slate-800/60 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
+    <div id="descanso" class="hidden bg-slate-800/60 border border-sky-900/60 rounded-xl px-2 py-1.5 space-y-1">
       <div class="flex items-center justify-between gap-2">
         <span id="descanso-texto" class="text-xs font-semibold text-slate-300">⏱ Descanso</span>
         <span id="descanso-tiempo" class="text-xl font-bold tabular-nums text-sky-300">1:30</span>
@@ -576,6 +555,36 @@
     </div>
 
     <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
+    <!-- NUEVO: bloques secundarios recogidos en desplegables (cerrados por defecto) -->
+    <details id="desplegable-sensacion" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="sensacion-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">🙂 ¿Cómo te sientes hoy?</summary>
+    <!-- NUEVO: SENSACIÓN DEL DÍA. Ajusta la sugerencia de hoy sin culpa (se guarda por fecha). -->
+    <div id="sensacion-dia" class="space-y-1 pt-1 pb-0.5">
+      <div class="grid grid-cols-2 gap-2">
+        <button data-sensacion="normal" onclick="fijarSensacion('normal')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">😐 Normal</button>
+        <button data-sensacion="tope" onclick="fijarSensacion('tope')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">⚡ A tope</button>
+        <button data-sensacion="cansado" onclick="fijarSensacion('cansado')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">🥱 Cansado</button>
+        <button data-sensacion="agujetas" onclick="fijarSensacion('agujetas')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">💪 Agujetas</button>
+      </div>
+    </div>
+    </details>
+    <details id="desplegable-info" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary class="cursor-pointer text-xs text-slate-200 font-semibold">ℹ️ Rango y cómo progresa este ejercicio</summary>
+    <p id="info-modalidad" class="text-[11px] text-slate-400 pt-1 pb-0.5"></p>
+    </details>
+    <details id="desplegable-ajustes" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary id="ajustes-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">👤 Tu nombre y voz de ánimo</summary>
+    <!-- NUEVO: tu nombre (para los mensajes de ánimo). Se guarda en este móvil. -->
+    <div class="flex items-center gap-1.5 pt-1 pb-0.5">
+      <label for="nombre-usuario" class="text-xs text-slate-500 shrink-0">👤</label>
+      <input id="nombre-usuario" type="text" maxlength="20" autocomplete="given-name" placeholder="Tu nombre (para darte ánimos)"
+        onchange="guardarNombre()" onkeydown="if (event.key === 'Enter') this.blur()"
+        class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-xs" />
+      <!-- NUEVO: voz para los ánimos (activada por defecto; un toque la apaga) -->
+      <button id="btn-voz" onclick="alternarVoz()" title="Leer los ánimos en voz alta (🔊 activada / 🔇 desactivada)" aria-pressed="true"
+        class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap">🔊 Voz</button>
+    </div>
+    </details>
     <details id="desplegable-radar" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
       <summary id="radar-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">📡 Radar de constancia</summary>
       <div id="radar-constancia" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5"></div>
@@ -3173,7 +3182,18 @@
         else localStorage.removeItem('ft4_userName');
       } catch (e) { /* nada */ }
       document.getElementById('nombre-usuario').value = valor;
+      pintarResumenAjustes();
       if (valor) animar('saludo');
+    }
+    // NUEVO: resumen del desplegable de ajustes (ej. "👤 Jhovanny · 🔊 Voz")
+    function pintarResumenAjustes() {
+      try {
+        const resumen = document.getElementById('ajustes-resumen');
+        if (!resumen) return;
+        const nombre = nombreUsuario();
+        const voz = vozActiva() && hayVoz() ? '🔊 Voz' : '🔇 Voz';
+        resumen.textContent = `👤 ${nombre || 'Tu nombre'} · ${voz}`;   // textContent: seguro
+      } catch (e) { /* nada */ }
     }
 
     // Frases: {n} se cambia por ", Nombre" (o desaparece si no hay nombre).
@@ -3239,6 +3259,7 @@
       const activa = vozActiva() && hayVoz();
       boton.textContent = activa ? '🔊 Voz' : '🔇 Voz';
       boton.setAttribute('aria-pressed', activa ? 'true' : 'false');
+      pintarResumenAjustes();
     }
     function alternarVoz() {
       if (!hayVoz()) {
@@ -3413,6 +3434,10 @@
             (activa ? 'bg-sky-500 text-slate-950 font-semibold' : 'bg-slate-800 border-slate-700 hover:bg-slate-700');
           b.setAttribute('aria-pressed', activa ? 'true' : 'false');
         });
+        // NUEVO: resumen en el desplegable (ej. "⚡ Hoy: A tope")
+        const resumen = document.getElementById('sensacion-resumen');
+        const boton = document.querySelector(`#sensacion-dia [data-sensacion="${actual}"]`);
+        if (resumen && boton) resumen.textContent = `${fechaSeleccionada() === hoy() ? 'Hoy' : fechaBonita(fechaSeleccionada())}: ${boton.textContent.trim()} · cambiar`;
       } catch (e) { /* nada */ }
     }
 
