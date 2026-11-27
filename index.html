@@ -84,6 +84,8 @@
 
     <!-- NUEVO: barras de progreso para kcal, proteínas, carbos y grasas -->
     <div id="barras-macros" class="grid grid-cols-2 gap-x-3 gap-y-1"></div>
+    <!-- NUEVO: lo que te queda para llegar a tus objetivos del día -->
+    <p id="margen-dia" class="text-[11px] leading-tight"></p>
 
     <!-- NUEVO: MEDIDOR DE AGUA del día elegido. Suma de un toque con los botones rápidos. -->
     <div id="bloque-agua" class="bg-sky-950/40 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
@@ -236,6 +238,10 @@
       </button>
     </div>
 
+    <!-- NUEVO: copiar de un toque las comidas del día anterior (solo sale si ese día tiene comidas) -->
+    <div id="fila-repetir" class="hidden flex justify-end">
+      <button id="btn-repetir-ayer" onclick="repetirAyer()" class="mini h-8 px-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sky-300 rounded-lg text-xs whitespace-nowrap">↻ Repetir ayer</button>
+    </div>
     <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
 
     <!-- NUEVO: crear tus propios alimentos. Copia los datos "por 100 g" de la etiqueta. -->
@@ -328,6 +334,24 @@
     </button>
     <!-- NUEVO: mensaje tras guardar (o si falta algún dato) -->
     <p id="aviso-entreno" class="text-[11px] text-slate-400 empty:hidden"></p>
+
+    <!-- NUEVO: CRONÓMETRO DE DESCANSO. Arranca solo al guardar una serie. -->
+    <div id="descanso" class="hidden bg-slate-800/60 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
+      <div class="flex items-center justify-between gap-2">
+        <span id="descanso-texto" class="text-xs font-semibold text-slate-300">⏱ Descanso</span>
+        <span id="descanso-tiempo" class="text-xl font-bold tabular-nums text-sky-300">1:30</span>
+      </div>
+      <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+        <div id="descanso-barra" class="h-full bg-sky-400 rounded-full" style="width:0%"></div>
+      </div>
+      <div class="grid grid-cols-5 gap-1">
+        <button onclick="ajustarDescanso(-15)" class="mini h-8 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">−15s</button>
+        <button onclick="ajustarDescanso(15)" class="mini h-8 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">+15s</button>
+        <button onclick="fijarDescanso(90)" class="mini h-8 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">90s</button>
+        <button onclick="fijarDescanso(120)" class="mini h-8 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">120s</button>
+        <button onclick="cerrarDescanso()" title="Parar y cerrar" class="mini h-8 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs">✕</button>
+      </div>
+    </div>
 
     <!-- NUEVO: IA DE POSTURA Y REPETICIONES (opcional). No carga cámara ni IA hasta que lo abres.
          Todo se analiza en tu móvil: el vídeo no sale de él. -->
@@ -645,10 +669,15 @@
     // ---------- VENTANA DE CONFIRMACIÓN PROPIA ----------
     // En vez del confirm() del navegador (que algunos sitios bloquean),
     // mostramos nuestra propia ventanita con "Cancelar" y "Borrar".
-    function confirmar(mensaje) {
+    function confirmar(mensaje, textoSi = 'Borrar') {
       return new Promise(resolve => {
         const fondo = document.getElementById('dialogo');
         document.getElementById('dialogo-texto').textContent = mensaje;
+        // El botón de aceptar dice "Borrar" (rojo) o, por ejemplo, "Añadir" (azul).
+        const si = document.getElementById('dialogo-si');
+        si.textContent = textoSi;
+        si.className = 'flex-1 font-semibold py-1.5 rounded-xl text-sm text-slate-950 ' +
+          (textoSi === 'Borrar' ? 'bg-rose-500 hover:bg-rose-400' : 'bg-sky-500 hover:bg-sky-400');
         fondo.classList.remove('hidden');
         fondo.classList.add('flex');
         const cerrar = respuesta => {
@@ -2220,6 +2249,7 @@
       const prog = calcularProgresion(ex, { weight, reps, sets });
       aviso.className = 'text-[11px] text-emerald-400';
       aviso.textContent = `Guardado ✓ · ${prog.badge}`;
+      iniciarDescanso();   // NUEVO: arranca el descanso
     }
 
     // NUEVO: borrar una comida o un entreno (pide confirmación antes).
@@ -2293,12 +2323,20 @@
               <span>${escaparHTML(item.name)} (${item.grams}g)</span>
               <span class="flex items-center gap-3">
                 <span class="font-semibold text-sky-300">${item.kcal} kcal</span>
+                <button onclick="repetirComida('${item.id}')" title="Añadir otra vez (mismos gramos)"
+                  class="mini shrink-0 text-slate-500 hover:text-emerald-400 text-base leading-none p-2 -m-2">＋</button>
                 <button onclick="borrarComida('${item.id}')" title="Borrar"
                   class="mini shrink-0 text-slate-500 hover:text-rose-400 text-base leading-none p-2 -m-2">✕</button>
               </span>
             </li>`)
             .join('')
         : `<li class="text-slate-500">No hay comidas apuntadas este día.</li>`;
+
+      // NUEVO: lo que queda del día y botón «Repetir ayer»
+      pintarMargenDia(totals);
+      const deAyer = state.foods.filter(f => f.date === diaAnterior(fecha)).length;
+      document.getElementById('fila-repetir').classList.toggle('hidden', !deAyer);
+      document.getElementById('btn-repetir-ayer').textContent = `↻ Repetir ayer (${deAyer})`;
 
       // ---- MIS ALIMENTOS: desplegable y lista con botón de borrar ----
       rellenarSelectorAlimentos();
@@ -2694,6 +2732,149 @@
       if (tipo && !ia.corriendo) { document.getElementById('ia-ejercicio').value = tipo; reiniciarIA(); }
     });
 
+    // ---------- NUEVO: REPETIR COMIDAS ----------
+    // Día anterior al elegido, en formato "AAAA-MM-DD".
+    function diaAnterior(fechaTexto) {
+      const [a, m, d] = fechaTexto.split('-').map(Number);
+      const f = new Date(a, m - 1, d - 1);
+      return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+    }
+
+    // Copia una comida (mismo alimento, mismos gramos y macros) al día elegido.
+    function copiarComida(item, fecha) {
+      return { ...item, id: nuevoId(), date: fecha };
+    }
+
+    // Botón ＋ de cada comida: la vuelve a añadir de un toque.
+    function repetirComida(id) {
+      const item = state.foods.find(f => f.id === id);
+      if (!item) return;
+      state.foods.push(copiarComida(item, fechaSeleccionada()));
+      if (navigator.vibrate) navigator.vibrate(25);
+      saveState();
+      render();
+    }
+
+    // «↻ Repetir ayer»: copia todas las comidas del día anterior al día elegido.
+    async function repetirAyer() {
+      const fecha = fechaSeleccionada();
+      const ayer = diaAnterior(fecha);
+      const deAyer = state.foods.filter(f => f.date === ayer);
+      if (!deAyer.length) return;
+      const yaHay = state.foods.some(f => f.date === fecha);
+      if (yaHay && !await confirmar(`Ya tienes comidas este día. ¿Añadir también las ${deAyer.length} del día anterior?`, 'Añadir')) return;
+      deAyer.forEach(item => state.foods.push(copiarComida(item, fecha)));
+      if (navigator.vibrate) navigator.vibrate(30);
+      saveState();
+      render();
+    }
+
+    // ---------- NUEVO: LO QUE QUEDA DEL DÍA ----------
+    function pintarMargenDia(totals) {
+      const quedan = [], sobran = [];
+      [['', totals.kcal, TARGETS.kcal, ' kcal'], ['P ', totals.p, TARGETS.p, 'g'],
+       ['C ', totals.c, TARGETS.c, 'g'], ['G ', totals.f, TARGETS.f, 'g']].forEach(([etq, hecho, obj, ud]) => {
+        const resto = Math.round(obj - hecho);
+        if (resto >= 0) quedan.push(`${etq}${resto}${ud}`);
+        else sobran.push(`${etq}${-resto}${ud}`);
+      });
+      const sep = '<span class="text-slate-600"> · </span>';
+      let html = '';
+      if (quedan.length) html += `<span class="text-slate-500">Quedan:</span> <span class="text-slate-300">${quedan.join(sep)}</span>`;
+      if (sobran.length) html += `${quedan.length ? sep : ''}<span class="text-rose-400">Te pasas: ${sobran.join(sep)}</span>`;
+      document.getElementById('margen-dia').innerHTML = html;
+    }
+
+    // ---------- NUEVO: CRONÓMETRO DE DESCANSO ----------
+    // Arranca solo al guardar una serie: 90 s en calistenia y 120 s en pesas/lastrada.
+    // Si cambias el tiempo, la app lo recuerda para ese tipo de ejercicio.
+    const descanso = { fin: 0, total: 0, intervalo: null, modalidad: 'calistenia', avisado: false };
+
+    function descansoGuardado(modalidad) {
+      try {
+        const g = JSON.parse(localStorage.getItem('ft4_rest') || '{}');
+        if (g[modalidad] > 0) return g[modalidad];
+      } catch (e) { /* nada */ }
+      return modalidad === 'calistenia' ? 90 : 120;
+    }
+    function recordarDescanso(segundos) {
+      try {
+        const g = JSON.parse(localStorage.getItem('ft4_rest') || '{}');
+        g[descanso.modalidad] = segundos;
+        localStorage.setItem('ft4_rest', JSON.stringify(g));
+      } catch (e) { /* nada */ }
+    }
+
+    function iniciarDescanso(segundos) {
+      const ex = EXERCISE_DB[document.getElementById('ejercicio-select').value];
+      descanso.modalidad = ex ? ex.modality : 'calistenia';
+      const s = segundos || descansoGuardado(descanso.modalidad);
+      descanso.total = s;
+      descanso.fin = Date.now() + s * 1000;
+      descanso.avisado = false;
+      document.getElementById('descanso').classList.remove('hidden');
+      clearInterval(descanso.intervalo);
+      descanso.intervalo = setInterval(pintarDescanso, 250);
+      pintarDescanso();
+    }
+
+    function ajustarDescanso(cambio) {
+      if (!descanso.fin) return iniciarDescanso();
+      const restante = Math.max(0, Math.ceil((descanso.fin - Date.now()) / 1000));
+      const nuevo = Math.max(5, restante + cambio);
+      descanso.fin = Date.now() + nuevo * 1000;
+      descanso.total = Math.max(nuevo, descanso.total + cambio);
+      descanso.avisado = false;
+      recordarDescanso(Math.max(15, descansoGuardado(descanso.modalidad) + cambio));
+      clearInterval(descanso.intervalo);
+      descanso.intervalo = setInterval(pintarDescanso, 250);
+      pintarDescanso();
+    }
+
+    function fijarDescanso(segundos) {
+      const ex = EXERCISE_DB[document.getElementById('ejercicio-select').value];
+      descanso.modalidad = ex ? ex.modality : 'calistenia';
+      recordarDescanso(segundos);
+      iniciarDescanso(segundos);
+    }
+
+    function pintarDescanso() {
+      const restante = Math.max(0, Math.ceil((descanso.fin - Date.now()) / 1000));
+      const min = Math.floor(restante / 60), seg = String(restante % 60).padStart(2, '0');
+      const reloj = document.getElementById('descanso-tiempo');
+      const barra = document.getElementById('descanso-barra');
+      const texto = document.getElementById('descanso-texto');
+      reloj.textContent = `${min}:${seg}`;
+      barra.style.width = (descanso.total ? (1 - restante / descanso.total) * 100 : 100) + '%';
+      if (restante === 0) {
+        if (!descanso.avisado) {
+          descanso.avisado = true;
+          if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          clearInterval(descanso.intervalo);
+          // Se cierra solo pasados 20 s si no lo tocas.
+          descanso.intervalo = setTimeout(cerrarDescanso, 20000);
+        }
+        texto.textContent = '¡A por la siguiente serie!';
+        texto.className = 'text-xs font-semibold text-emerald-400';
+        reloj.className = 'text-xl font-bold tabular-nums text-emerald-400';
+        barra.className = 'h-full bg-emerald-400 rounded-full';
+      } else {
+        texto.textContent = '⏱ Descanso';
+        texto.className = 'text-xs font-semibold text-slate-300';
+        reloj.className = 'text-xl font-bold tabular-nums text-sky-300';
+        barra.className = 'h-full bg-sky-400 rounded-full transition-all duration-200';
+      }
+    }
+
+    function cerrarDescanso() {
+      clearInterval(descanso.intervalo);
+      clearTimeout(descanso.intervalo);
+      descanso.fin = 0;
+      document.getElementById('descanso').classList.add('hidden');
+    }
+    // Al volver a la app, el reloj se pone al día (sigue contando aunque salgas).
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && descanso.fin && !descanso.avisado) pintarDescanso(); });
+
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
     // Se guarda por día: { "2026-11-27": 750, ... } y una meta diaria (2000 ml por defecto).
     const META_AGUA_DEFECTO = 2000;
@@ -2773,7 +2954,7 @@
     render();
 
     // ---------- NUEVO: COPIA DE SEGURIDAD ----------
-    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal'];
+    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest'];
 
     function exportarDatos() {
       const copia = { app: 'FitTrack', version: 1, fecha: new Date().toISOString(), datos: {} };
@@ -2804,7 +2985,7 @@
         if (!await confirmar('¿Sustituir tus datos actuales por los de esta copia?')) return;
         CLAVES_DATOS.forEach(clave => {
           // Las copias antiguas no traen el agua: en ese caso dejamos la que ya tienes.
-          if (clave.startsWith('ft4_water') && !(clave in copia.datos)) return;
+          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest') && !(clave in copia.datos)) return;
           const valor = copia.datos[clave];
           if (valor === null || valor === undefined) localStorage.removeItem(clave);
           else localStorage.setItem(clave, JSON.stringify(valor));
