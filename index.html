@@ -140,7 +140,8 @@
     html body .text-emerald-300, html body .text-emerald-400 { color: #bfe8d6; }
     html body .text-rose-400 { color: #f3a3b2; }
     html body .text-amber-300, html body .text-amber-400 { color: #ecd9a4; }
-    html body #barras-macros, html body #agua-barra, html body #descanso-barra { filter: saturate(0.6) brightness(1.05); }
+    html body #agua-barra, html body #descanso-barra { filter: saturate(0.6) brightness(1.05); }
+    html body #barras-macros { filter: saturate(0.75) brightness(1.08); }
     html body .border-emerald-400\/80, html body .border-emerald-400\/70 { border-color: rgba(255, 255, 255, 0.55); }
     html body .border-emerald-500 { border-color: rgba(255, 255, 255, 0.5); }
     html body .border-sky-900 { border-color: rgba(255, 255, 255, 0.14); }
@@ -335,7 +336,7 @@
         <button onclick="alternarMetaAgua()" title="Cambiar meta diaria" class="mini shrink-0 h-9 w-9 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">🎯</button>
       </div>
       <div id="agua-meta-caja" class="hidden">
-        <div class="flex gap-1.5">
+        <div class="flex gap-2">
           <input id="agua-meta-input" type="number" min="250" max="10000" step="50" placeholder="Meta diaria en ml (ej. 2000)"
             onkeydown="if (event.key === 'Enter') guardarMetaAgua()"
             class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm" />
@@ -2505,7 +2506,7 @@
         <div class="flex justify-between gap-1 text-[11px] leading-tight text-slate-400">
           <span class="truncate">${nombre}</span><span class="shrink-0">${valorTexto}/${objetivo} ${unidad}</span>
         </div>
-        <div class="h-1 mt-0.5 bg-slate-800 rounded-full overflow-hidden">
+        <div class="h-1.5 mt-0.5 bg-slate-800 rounded-full overflow-hidden">
           <div class="h-full ${color}" style="width:${pct}%"></div>
         </div>
       </div>`;
