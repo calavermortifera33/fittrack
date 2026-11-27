@@ -28,24 +28,49 @@
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
     }
+    /* DISEÑO ADAPTABLE: respeta el notch y las barras del sistema en cualquier móvil
+       (arriba, abajo y a los lados si giras el móvil). "html body" gana a las clases de Tailwind. */
+    html body {
+      padding-top: max(0.75rem, env(safe-area-inset-top));
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+    }
+    @media (min-width: 640px) {
+      html body {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+      }
+    }
+    /* La barra de pestañas fija se queda justo debajo del notch. */
+    #barra-pestanas { top: env(safe-area-inset-top, 0px); }
+    /* Botones y campos cómodos al tacto en pantallas táctiles (mínimo 40 px de alto). */
+    @media (pointer: coarse) {
+      button:not(.mini), select,
+      input[type="text"], input[type="number"], input[type="search"], input[type="date"],
+      label.boton { min-height: 40px; }
+      label.boton { display: flex; align-items: center; justify-content: center; }
+    }
+    /* Los textos largos se parten en vez de salirse de la pantalla. */
+    #seccion-nutri, #seccion-entreno { overflow-wrap: anywhere; }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen max-w-md mx-auto p-3" style="padding-top:max(0.75rem, env(safe-area-inset-top)); padding-bottom:max(0.75rem, env(safe-area-inset-bottom));">
+<body class="bg-slate-950 text-slate-100 min-h-screen min-h-[100svh] w-full max-w-md mx-auto px-3 sm:px-4 py-3">
   <!-- CABECERA: nombre de la app + SELECTOR DE DÍA en una sola fila.
        Todo lo que apuntes se guarda con esta fecha (por defecto, hoy). -->
   <header class="flex items-center gap-2 mb-2">
-    <h1 class="text-lg font-bold text-sky-400 leading-tight shrink-0">FitTrack <span class="text-slate-500 text-xs font-semibold">4-en-1</span></h1>
+    <h1 class="text-lg font-bold text-sky-400 leading-tight shrink-0 whitespace-nowrap">FitTrack <span class="text-slate-500 text-xs font-semibold">4-en-1</span></h1>
     <label for="fecha-input" class="sr-only">Día</label>
     <input id="fecha-input" type="date" onchange="render()"
       class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-    <button onclick="irAHoy()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl text-xs">
+    <button onclick="irAHoy()" class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl text-xs">
       Hoy
     </button>
   </header>
 
   <!-- PESTAÑAS: separan Nutrición (macros, agua, alimentos) y Entreno (pesas, calistenia, lastrada).
        Se quedan fijas arriba al bajar, para cambiar de zona de un toque. -->
-  <nav class="sticky top-0 z-40 -mx-3 px-3 py-1.5 mb-2 bg-slate-950/95 backdrop-blur grid grid-cols-2 gap-1.5">
+  <nav id="barra-pestanas" class="sticky top-0 z-40 -mx-3 sm:-mx-4 px-3 sm:px-4 py-1.5 mb-2 bg-slate-950/95 backdrop-blur grid grid-cols-2 gap-1.5">
     <button id="tab-nutri" onclick="mostrarPestana('nutri')" class="py-1.5 rounded-xl text-sm font-semibold">🍎 Nutrición</button>
     <button id="tab-entreno" onclick="mostrarPestana('entreno')" class="py-1.5 rounded-xl text-sm font-semibold">🏋️ Entreno</button>
   </nav>
@@ -80,7 +105,7 @@
           <input id="agua-meta-input" type="number" min="250" max="10000" step="50" placeholder="Meta diaria en ml (ej. 2000)"
             onkeydown="if (event.key === 'Enter') guardarMetaAgua()"
             class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm" />
-          <button onclick="guardarMetaAgua()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs">Guardar</button>
+          <button onclick="guardarMetaAgua()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs">Guardar</button>
         </div>
       </div>
     </div>
@@ -92,19 +117,19 @@
         <div class="grid grid-cols-4 gap-2">
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
-            <input id="obj-kcal" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="obj-kcal" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
-            <input id="obj-p" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="obj-p" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
-            <input id="obj-c" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="obj-c" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
-            <input id="obj-f" type="number" min="1" step="any" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="obj-f" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
         </div>
         <p id="aviso-objetivos" class="text-[11px] text-slate-400 empty:hidden"></p>
@@ -131,7 +156,7 @@
         <input id="busqueda-input" type="search" enterkeyhint="search" placeholder="Ej. patata, lentejas, yogur griego…"
           onkeydown="if (event.key === 'Enter') buscarPorNombre()"
           class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
-        <button onclick="buscarPorNombre()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-1.5 rounded-xl text-sm">Buscar</button>
+        <button onclick="buscarPorNombre()" class="shrink-0 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-1.5 rounded-xl text-sm">Buscar</button>
       </div>
       <!-- Aquí salen los resultados: toca uno para rellenar "Mis alimentos" -->
       <ul id="resultados-busqueda" class="space-y-1.5 text-xs"></ul>
@@ -140,7 +165,7 @@
         <button id="btn-camara" onclick="abrirEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm">
           ▥ Código de barras
         </button>
-        <label class="text-center bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm cursor-pointer">
+        <label class="boton text-center bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-sm cursor-pointer">
           📷 Foto tabla nutricional
           <input id="foto-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="leerFotoEtiqueta(this)" />
         </label>
@@ -154,13 +179,13 @@
       <!-- Aquí aparece la imagen de la cámara mientras escaneas -->
       <div id="zona-camara" class="hidden space-y-2">
         <div class="relative">
-          <div id="lector" class="rounded-xl overflow-hidden bg-black w-full" style="min-height: 300px;"></div>
+          <div id="lector" class="rounded-xl overflow-hidden bg-black w-full h-[40svh] min-h-[240px] max-h-[340px]"></div>
           <!-- Franja guía: pon el código de barras dentro (solo es una ayuda visual, no recorta nada) -->
           <div class="pointer-events-none absolute inset-x-[5%] top-1/2 -translate-y-1/2 h-[45%] border-2 border-emerald-400/80 rounded-lg"></div>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <button onclick="capturarFotograma()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">⦿ Capturar</button>
-          <label for="foto-codigo-input" class="text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm cursor-pointer">📸 Foto</label>
+          <label for="foto-codigo-input" class="boton text-center bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm cursor-pointer">📸 Foto</label>
           <button onclick="cerrarEscanerCodigo()" class="bg-slate-700 hover:bg-slate-600 py-1.5 rounded-xl text-sm">Cerrar</button>
         </div>
       </div>
@@ -170,7 +195,7 @@
         <input id="codigo-input" type="text" inputmode="numeric" placeholder="Nº del código de barras"
           onkeydown="if (event.key === 'Enter') buscarCodigo(this.value)"
           class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
-        <button onclick="buscarCodigo(document.getElementById('codigo-input').value)" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-xl text-sm">Buscar</button>
+        <button onclick="buscarCodigo(document.getElementById('codigo-input').value)" class="shrink-0 bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-xl text-sm">Buscar</button>
       </div>
 
       <p id="estado-escaner" class="text-[11px] text-slate-400 empty:hidden"></p>
@@ -180,15 +205,15 @@
          se reduce al instante a los alimentos que coinciden (básicos y tuyos). Sin internet. -->
     <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos (patata, plátano…)"
       oninput="filtrarAlimentos()" onkeydown="if (event.key === 'Enter') document.getElementById('gramos-input').focus()"
-      class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+      class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
     <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1 empty:hidden"></p>
 
     <div class="flex gap-2">
       <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
            así aparecen tanto los alimentos de base como los tuyos. -->
       <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm"></select>
-      <input id="gramos-input" type="number" placeholder="g" min="1" class="w-20 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
-      <button onclick="addFood()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-1.5 rounded-xl text-sm">
+      <input id="gramos-input" type="number" inputmode="decimal" placeholder="g" min="1" class="min-w-0 w-16 sm:w-20 shrink-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+      <button onclick="addFood()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-1.5 rounded-xl text-sm">
         +
       </button>
     </div>
@@ -204,28 +229,28 @@
           <img id="vista-previa" alt="Foto de la tabla nutricional" class="w-full max-h-72 object-contain rounded-xl bg-black" />
           <div class="flex justify-between items-center">
             <span class="text-[11px] text-slate-400">Compara con la columna «por 100 g».</span>
-            <button onclick="quitarFoto()" class="text-[11px] text-slate-400 hover:text-rose-400 underline">Quitar foto</button>
+            <button onclick="quitarFoto()" class="mini text-[11px] text-slate-400 hover:text-rose-400 underline">Quitar foto</button>
           </div>
         </div>
         <input id="nuevo-nombre" type="text" placeholder="Nombre (ej. Yogur griego)" maxlength="40"
-          class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+          class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
         <p class="text-[11px] text-slate-400">Valores por 100 g:</p>
         <div class="grid grid-cols-4 gap-2">
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
-            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
-            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
-            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
           <div>
             <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
-            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
           </div>
         </div>
         <p id="aviso-alimento" class="text-[11px] text-rose-400 empty:hidden"></p>
@@ -241,7 +266,7 @@
   <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-2">
     <h2 class="text-sm font-semibold text-emerald-300">Entrenamiento y Progresión <span class="text-[11px] text-slate-500 font-normal">pesas · calistenia · lastrada</span></h2>
 
-    <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm">
+    <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm">
       <optgroup label="2. Fuerza con pesas (progresión por carga)">
         <option value="sentadilla_pesa">Sentadilla con pesa / barra</option>
         <option value="press_banca">Press de banca / mancuernas</option>
@@ -268,15 +293,15 @@
     <div class="grid grid-cols-3 gap-2">
       <div id="campo-carga">
         <label id="label-carga" class="block text-[11px] text-slate-400 mb-0.5">Peso (kg)</label>
-        <input id="peso-input" type="number" step="0.5" placeholder="20" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <input id="peso-input" type="number" step="0.5" placeholder="20" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-0.5">Series</label>
-        <input id="series-input" type="number" placeholder="3" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <input id="series-input" type="number" placeholder="3" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
       </div>
       <div>
         <label class="block text-[11px] text-slate-400 mb-0.5">Reps</label>
-        <input id="reps-input" type="number" placeholder="10" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <input id="reps-input" type="number" placeholder="10" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
       </div>
     </div>
 
@@ -297,7 +322,7 @@
     <p class="text-[11px] text-slate-400">Guarda o recupera todos tus datos (comidas, agua, entrenos…) en un archivo.</p>
     <div class="grid grid-cols-2 gap-2">
       <button onclick="exportarDatos()" class="bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm">⬇ Exportar</button>
-      <label class="text-center bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm cursor-pointer">
+      <label class="boton text-center bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm cursor-pointer">
         ⬆ Importar
         <input type="file" accept="application/json,.json" class="hidden" onchange="importarDatos(this)" />
       </label>
@@ -870,7 +895,7 @@
     async function iniciarZXing(ZX) {
       const visor = document.getElementById('lector');
       visor.innerHTML = '<video id="video-lector" playsinline muted autoplay ' +
-        'style="width:100%;height:100%;min-height:300px;object-fit:cover;display:block;"></video>';
+        'style="width:100%;height:100%;object-fit:cover;display:block;"></video>';
       const video = document.getElementById('video-lector');
 
       // Solo formatos básicos: EAN-13, EAN-8, UPC-A y CODE-128.
@@ -1879,7 +1904,7 @@
               <span class="flex items-center gap-3">
                 <span class="font-semibold text-sky-300">${item.kcal} kcal</span>
                 <button onclick="borrarComida('${item.id}')" title="Borrar"
-                  class="text-slate-500 hover:text-rose-400 text-base leading-none">✕</button>
+                  class="mini shrink-0 text-slate-500 hover:text-rose-400 text-base leading-none p-2 -m-2">✕</button>
               </span>
             </li>`)
             .join('')
@@ -1894,7 +1919,7 @@
                 <span class="text-slate-500">· ${item.kcal} kcal · P ${item.p} · C ${item.c} · G ${item.f}</span>
               </span>
               <button onclick="borrarAlimentoPropio('${item.id}')" title="Borrar"
-                class="text-slate-500 hover:text-rose-400 text-base leading-none">✕</button>
+                class="mini shrink-0 text-slate-500 hover:text-rose-400 text-base leading-none p-2 -m-2">✕</button>
             </li>`)
             .join('')
         : `<li class="text-slate-500">Todavía no has creado ningún alimento.</li>`;
@@ -1919,7 +1944,7 @@
             .map(w => `<li class="flex justify-between items-center">
               <span><span class="text-slate-500">${fechaBonita(w.date)}</span> · ${detalleEntreno(ex, w)}</span>
               <button onclick="borrarEntreno('${w.id}')" title="Borrar"
-                class="text-slate-500 hover:text-rose-400 text-base leading-none">✕</button>
+                class="mini shrink-0 text-slate-500 hover:text-rose-400 text-base leading-none p-2 -m-2">✕</button>
             </li>`)
             .join('');
 
