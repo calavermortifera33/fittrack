@@ -403,9 +403,9 @@
       <input id="nombre-usuario" type="text" maxlength="20" autocomplete="given-name" placeholder="Tu nombre (para darte ánimos)"
         onchange="guardarNombre()" onkeydown="if (event.key === 'Enter') this.blur()"
         class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-xs" />
-      <!-- NUEVO: voz para los ánimos (desactivada por defecto) -->
-      <button id="btn-voz" onclick="alternarVoz()" title="Leer los ánimos en voz alta" aria-pressed="false"
-        class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap">🔇 Voz</button>
+      <!-- NUEVO: voz para los ánimos (activada por defecto; un toque la apaga) -->
+      <button id="btn-voz" onclick="alternarVoz()" title="Leer los ánimos en voz alta (🔊 activada / 🔇 desactivada)" aria-pressed="true"
+        class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap">🔊 Voz</button>
     </div>
     <!-- NUEVO: mensaje de ánimo. Flota justo bajo las pestañas para que lo veas aunque hayas bajado
          (no ocupa sitio ni bloquea toques: se puede pulsar a través de él). -->
@@ -3054,44 +3054,58 @@
     }, { passive: true });
 
     // ---------- NUEVO: VOZ (opcional) ----------
-    // Lee los ánimos en voz alta en español. Desactivada por defecto; se recuerda en este móvil.
+    // Lee los ánimos en voz alta en español. ACTIVADA por defecto; el botón 🔊/🔇 la alterna
+    // y la preferencia se guarda en ft4_voiceEnabled ('1' = sí, '0' = no).
+    function hayVoz() {
+      try { return !!(window.speechSynthesis && window.SpeechSynthesisUtterance); } catch (e) { return false; }
+    }
     function vozActiva() {
-      try { return localStorage.getItem('ft4_voz') === '1'; } catch (e) { return false; }
+      try {
+        let valor = localStorage.getItem('ft4_voiceEnabled');
+        if (valor === null) {
+          // Si venías de la versión anterior (clave ft4_voz), respetamos lo que elegiste.
+          const antiguo = localStorage.getItem('ft4_voz');
+          valor = antiguo === '0' ? '0' : '1';
+          localStorage.setItem('ft4_voiceEnabled', valor);
+          localStorage.removeItem('ft4_voz');
+        }
+        return valor === '1';
+      } catch (e) { return true; }
     }
     function pintarBotonVoz() {
       const boton = document.getElementById('btn-voz');
-      const activa = vozActiva();
+      const activa = vozActiva() && hayVoz();
       boton.textContent = activa ? '🔊 Voz' : '🔇 Voz';
       boton.setAttribute('aria-pressed', activa ? 'true' : 'false');
     }
     function alternarVoz() {
-      if (!('speechSynthesis' in window)) {
+      if (!hayVoz()) {
         animar('sinVoz');
         return;
       }
       const activar = !vozActiva();
-      try { localStorage.setItem('ft4_voz', activar ? '1' : '0'); } catch (e) { /* nada */ }
+      try { localStorage.setItem('ft4_voiceEnabled', activar ? '1' : '0'); } catch (e) { /* nada */ }
       pintarBotonVoz();
       if (activar) hablar('Voz activada');
-      else { try { speechSynthesis.cancel(); } catch (e) { /* nada */ } }
+      else { try { window.speechSynthesis.cancel(); } catch (e) { /* nada */ } }
     }
     function hablar(texto) {
-      if (!vozActiva() || !('speechSynthesis' in window)) return;
+      if (!vozActiva() || !hayVoz()) return;
       try {
-        speechSynthesis.cancel();   // corta la frase anterior para que no se solapen
+        window.speechSynthesis.cancel();   // corta la frase anterior para que no se solapen
         // Quitamos emojis para que no los lea en voz alta.
         const limpio = texto.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '').trim();
         const frase = new SpeechSynthesisUtterance(limpio);
         frase.lang = 'es-ES';
-        const voces = speechSynthesis.getVoices();
+        const voces = window.speechSynthesis.getVoices() || [];
         const voz = voces.find(v => v.lang === 'es-ES') || voces.find(v => /^es/i.test(v.lang));
         if (voz) frase.voice = voz;
         frase.rate = 1;
-        speechSynthesis.speak(frase);
+        window.speechSynthesis.speak(frase);
       } catch (e) { /* si el navegador falla con la voz, seguimos sin ella */ }
     }
     // Algunos navegadores cargan las voces un poco después.
-    if ('speechSynthesis' in window) { try { speechSynthesis.getVoices(); } catch (e) { /* nada */ } }
+    if (hayVoz()) { try { window.speechSynthesis.getVoices(); } catch (e) { /* nada */ } }
     document.getElementById('nombre-usuario').value = nombreUsuario();
     pintarBotonVoz();
     document.getElementById('ejercicio-select').addEventListener('change', () => animar('inicio'));
@@ -3178,7 +3192,7 @@
     render();
 
     // ---------- NUEVO: COPIA DE SEGURIDAD ----------
-    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName'];
+    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName', 'ft4_voiceEnabled'];
 
     function exportarDatos() {
       const copia = { app: 'FitTrack', version: 1, fecha: new Date().toISOString(), datos: {} };
@@ -3209,7 +3223,7 @@
         if (!await confirmar('¿Sustituir tus datos actuales por los de esta copia?')) return;
         CLAVES_DATOS.forEach(clave => {
           // Las copias antiguas no traen el agua: en ese caso dejamos la que ya tienes.
-          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName') && !(clave in copia.datos)) return;
+          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName' || clave === 'ft4_voiceEnabled') && !(clave in copia.datos)) return;
           const valor = copia.datos[clave];
           if (valor === null || valor === undefined) localStorage.removeItem(clave);
           else localStorage.setItem(clave, JSON.stringify(valor));
