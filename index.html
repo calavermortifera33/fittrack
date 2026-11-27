@@ -185,6 +185,9 @@
     }
     html body section details > summary { padding-top: 2px; padding-bottom: 2px; }
 
+    /* Nada se sale por la derecha en pantallas estrechas (desplegables con nombres largos) */
+    html body select, html body input:not([type="file"]) { max-width: 100%; }
+
     /* 3) Peso, Series y Reps: sin flechas nativas, número limpio y centrado */
     html body #peso-input, html body #series-input, html body #reps-input {
       -webkit-appearance: none;
@@ -286,7 +289,7 @@
 
       <!-- Buscador por nombre -->
       <div class="flex gap-2">
-        <input id="busqueda-input" type="search" enterkeyhint="search" placeholder="Buscar alimento (ej. yogur griego)"
+        <input id="busqueda-input" type="search" enterkeyhint="search" placeholder="Buscar alimento (ej. yogur)"
           onkeydown="if (event.key === 'Enter') buscarPorNombre()"
           class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
         <button onclick="buscarPorNombre()" class="shrink-0 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-1.5 rounded-xl text-sm">Buscar</button>
@@ -296,7 +299,7 @@
 
       <!-- Si la cámara no va, puedes escribir el número que hay debajo de las barras -->
       <div class="flex gap-2.5">
-        <input id="codigo-input" type="text" inputmode="numeric" placeholder="Nº del código de barras"
+        <input id="codigo-input" type="text" inputmode="numeric" placeholder="Código de barras"
           onkeydown="if (event.key === 'Enter') buscarCodigo(this.value)"
           class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
         <label for="foto-codigo-input" title="Foto al código de barras" class="boton shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-2.5 py-1.5 rounded-xl text-sm cursor-pointer whitespace-nowrap">📸 Foto</label>
