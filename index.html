@@ -312,6 +312,45 @@
     <!-- NUEVO: mensaje tras guardar (o si falta algún dato) -->
     <p id="aviso-entreno" class="text-[11px] text-slate-400 empty:hidden"></p>
 
+    <!-- NUEVO: IA DE POSTURA Y REPETICIONES (opcional). No carga cámara ni IA hasta que lo abres.
+         Todo se analiza en tu móvil: el vídeo no sale de él. -->
+    <details id="panel-ia" ontoggle="if (!this.open) pararIA()" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
+      <summary class="cursor-pointer text-xs text-emerald-300 font-semibold">🤖 IA de postura y repeticiones (beta)</summary>
+      <div class="space-y-1.5 pt-2">
+        <div class="flex gap-1.5">
+          <select id="ia-ejercicio" onchange="reiniciarIA()" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm">
+            <option value="sentadilla">Sentadilla libre</option>
+            <option value="flexiones">Flexiones</option>
+            <option value="dominadas">Dominadas</option>
+            <option value="fondos">Fondos en paralelas</option>
+          </select>
+          <button id="ia-camara-btn" onclick="alternarCamaraIA()" class="shrink-0 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-3 py-1.5 rounded-xl text-sm">▶ Cámara</button>
+        </div>
+
+        <!-- Vídeo + esqueleto dibujado encima -->
+        <div id="ia-visor" class="hidden relative rounded-xl overflow-hidden bg-black w-full h-[45svh] min-h-[240px] max-h-[380px]">
+          <video id="ia-video" playsinline muted autoplay class="absolute inset-0 w-full h-full object-contain"></video>
+          <canvas id="ia-lienzo" class="absolute inset-0 w-full h-full object-contain pointer-events-none"></canvas>
+          <div class="absolute top-1.5 left-1.5 right-1.5 flex justify-between items-start pointer-events-none">
+            <span id="ia-fase" class="bg-black/60 text-slate-200 text-[11px] px-2 py-0.5 rounded-lg">—</span>
+            <span id="ia-contador" class="bg-emerald-500 text-slate-950 text-2xl font-bold px-3 py-0.5 rounded-xl">0</span>
+          </div>
+          <button onclick="girarCamaraIA()" title="Cambiar cámara" class="mini absolute bottom-1.5 right-1.5 bg-black/60 text-white text-sm w-9 h-9 rounded-full">🔄</button>
+        </div>
+
+        <p id="ia-aviso" class="text-[11px] text-slate-400">Apoya el móvil de lado, a 2–3 m, que se te vea el cuerpo entero, y pulsa ▶ Cámara.</p>
+
+        <div class="grid grid-cols-3 gap-1.5">
+          <label class="boton text-center bg-slate-700 hover:bg-slate-600 py-1.5 rounded-xl text-xs cursor-pointer whitespace-nowrap">
+            📷 Foto
+            <input id="ia-foto-input" type="file" accept="image/*" class="hidden" onchange="analizarFotoIA(this)" />
+          </label>
+          <button onclick="reiniciarIA()" class="bg-slate-700 hover:bg-slate-600 py-1.5 rounded-xl text-xs whitespace-nowrap">↺ Reiniciar</button>
+          <button onclick="pasarRepsIA()" class="bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-xs whitespace-nowrap">⇢ Al formulario</button>
+        </div>
+      </div>
+    </details>
+
     <div id="lista-entrenos" class="space-y-2 pt-1"></div>
   </section>
 
@@ -2196,6 +2235,343 @@
       pintarAgua();
     }
 
+    // ---------- NUEVO: IA DE POSTURA Y REPETICIONES ----------
+    // TensorFlow.js + MoveNet (detección de postura). Se descarga solo la primera vez que lo usas
+    // y todo se calcula en tu móvil. MoveNet encuentra 17 puntos del cuerpo (hombros, codos, caderas…);
+    // con ellos medimos ángulos y contamos repeticiones.
+    let promesaPose = null;
+    function cargarDetectorPose() {
+      if (!promesaPose) {
+        promesaPose = (async () => {
+          if (!window.tf) await cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+          if (!window.poseDetection) {
+            // pose-detection pide también este archivo pequeño aunque usemos MoveNet.
+            try { await cargarScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js'); } catch (_) { /* no es imprescindible */ }
+            await cargarScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js');
+          }
+          try { await tf.setBackend('webgl'); } catch (_) { /* usa el que haya */ }
+          await tf.ready();
+          const pd = window.poseDetection;
+          return pd.createDetector(pd.SupportedModels.MoveNet, {
+            modelType: pd.movenet.modelType.SINGLEPOSE_LIGHTNING,
+            enableSmoothing: true
+          });
+        })().catch(e => { promesaPose = null; throw e; });
+      }
+      return promesaPose;
+    }
+
+    // Ángulo en el punto b (en grados) formado por a-b-c.
+    function anguloIA(a, b, c) {
+      const ab = Math.atan2(a.y - b.y, a.x - b.x), cb = Math.atan2(c.y - b.y, c.x - b.x);
+      let g = Math.abs((ab - cb) * 180 / Math.PI);
+      return g > 180 ? 360 - g : g;
+    }
+
+    // Elige el lado del cuerpo (izquierdo o derecho) que mejor se ve.
+    function ladoIA(kp, partes) {
+      const p = n => kp.find(k => k.name === n);
+      const lados = ['left', 'right'].map(l => {
+        const puntos = partes.map(parte => p(`${l}_${parte}`));
+        const media = puntos.reduce((s, k) => s + (k ? k.score : 0), 0) / puntos.length;
+        return { puntos, media };
+      }).sort((a, b) => b.media - a.media);
+      return lados[0].media >= 0.3 ? lados[0].puntos : null;
+    }
+
+    // Reglas de cada ejercicio:
+    //  medir(kp)   -> ángulo principal (o null si no se ve bien)
+    //  extendido   -> por encima de este ángulo estás "arriba" (o colgado en dominadas)
+    //  profundo(a) -> ¿has llegado al rango completo?
+    //  postura(kp) -> aviso de postura durante la rep (o null)
+    const EJERCICIOS_IA = {
+      sentadilla: {
+        fases: ['De pie', 'Abajo'],
+        medir: kp => { const s = ladoIA(kp, ['hip', 'knee', 'ankle']); return s && anguloIA(s[0], s[1], s[2]); },
+        extendido: 160, profundo: a => a <= 100,
+        faltaRango: min => `Baja más: rodilla a ~90° (llegaste a ${Math.round(min)}°).`,
+        postura: kp => {
+          const s = ladoIA(kp, ['shoulder', 'hip']);
+          if (!s) return null;
+          const incl = Math.abs(Math.atan2(s[0].x - s[1].x, s[1].y - s[0].y) * 180 / Math.PI);
+          return incl > 55 ? 'Pecho más arriba: te inclinas demasiado hacia delante.' : null;
+        }
+      },
+      flexiones: {
+        fases: ['Arriba', 'Abajo'],
+        medir: kp => { const s = ladoIA(kp, ['shoulder', 'elbow', 'wrist']); return s && anguloIA(s[0], s[1], s[2]); },
+        extendido: 150, profundo: a => a <= 95,
+        faltaRango: min => `Baja más: codo a ~90° o el pecho cerca del suelo (llegaste a ${Math.round(min)}°).`,
+        postura: kp => {
+          const s = ladoIA(kp, ['shoulder', 'hip', 'ankle']);
+          if (!s) return null;
+          return anguloIA(s[0], s[1], s[2]) < 155 ? 'Cuerpo recto: no hundas ni subas la cadera.' : null;
+        }
+      },
+      fondos: {
+        fases: ['Arriba', 'Abajo'],
+        medir: kp => { const s = ladoIA(kp, ['shoulder', 'elbow', 'wrist']); return s && anguloIA(s[0], s[1], s[2]); },
+        extendido: 150, profundo: a => a <= 95,
+        faltaRango: min => `Baja más: codo a ~90° (llegaste a ${Math.round(min)}°).`,
+        postura: () => null
+      },
+      dominadas: {
+        fases: ['Colgado', 'Arriba'],
+        medir: kp => { const s = ladoIA(kp, ['shoulder', 'elbow', 'wrist']); return s && anguloIA(s[0], s[1], s[2]); },
+        extendido: 150,
+        // Arriba de verdad: codo muy flexionado y la nariz a la altura de las manos o por encima.
+        profundo: (a, kp) => {
+          if (a > 80) return false;
+          const nariz = kp.find(k => k.name === 'nose');
+          const munecas = kp.filter(k => /wrist/.test(k.name) && k.score > 0.3);
+          if (!nariz || nariz.score < 0.3 || !munecas.length) return a <= 70;
+          const yMano = munecas.reduce((s, k) => s + k.y, 0) / munecas.length;
+          return nariz.y <= yMano + 15;
+        },
+        faltaRango: () => 'Sube más: la barbilla tiene que pasar la barra.',
+        postura: () => null
+      }
+    };
+
+    const ia = {
+      corriendo: false, frontal: true, flujo: null, bucle: null,
+      reps: 0, fase: 'extendido', listo: false, min: 999, llego: false, avisoPostura: null, ultimos: []
+    };
+
+    function avisoIA(texto, tipo = 'info') {
+      const colores = { info: 'text-slate-400', ok: 'text-emerald-400', error: 'text-rose-400', aviso: 'text-amber-300' };
+      const p = document.getElementById('ia-aviso');
+      p.className = 'text-[11px] ' + colores[tipo];
+      p.textContent = texto;
+    }
+
+    function pintarContadorIA() {
+      document.getElementById('ia-contador').textContent = ia.reps;
+      const ex = EJERCICIOS_IA[document.getElementById('ia-ejercicio').value];
+      document.getElementById('ia-fase').textContent = !ia.listo ? 'Colócate…' : (ia.fase === 'extendido' ? ex.fases[0] : ex.fases[1]);
+    }
+
+    function reiniciarIA() {
+      Object.assign(ia, { reps: 0, fase: 'extendido', listo: false, min: 999, llego: false, avisoPostura: null, ultimos: [] });
+      pintarContadorIA();
+      avisoIA(ia.corriendo ? 'Contador a 0. Empieza cuando quieras.' : 'Apoya el móvil de lado, a 2–3 m, que se te vea el cuerpo entero, y pulsa ▶ Cámara.');
+    }
+
+    // El cerebro del contador: una rep = salir de la posición extendida, llegar al rango y volver.
+    function procesarPoseIA(kp) {
+      const ex = EJERCICIOS_IA[document.getElementById('ia-ejercicio').value];
+      const bruto = ex.medir(kp);
+      if (bruto == null) { if (!ia.listo) avisoIA('No te veo bien: aléjate un poco para que salga el cuerpo entero, de lado.', 'aviso'); return null; }
+      ia.ultimos.push(bruto); if (ia.ultimos.length > 3) ia.ultimos.shift();
+      const a = ia.ultimos.reduce((s, x) => s + x, 0) / ia.ultimos.length;   // suavizado
+
+      if (!ia.listo) {
+        if (a >= ex.extendido) { ia.listo = true; avisoIA('¡Listo! Empieza: cuento cada repetición completa.', 'ok'); }
+        else avisoIA(`Ponte en la posición inicial (${ex.fases[0].toLowerCase()}, brazos/piernas estirados).`, 'aviso');
+      } else if (ia.fase === 'extendido') {
+        if (a < ex.extendido - 15) { ia.fase = 'moviendo'; ia.min = a; ia.llego = false; ia.avisoPostura = null; }
+      } else {
+        ia.min = Math.min(ia.min, a);
+        if (ex.profundo(a, kp)) ia.llego = true;
+        if (!ia.avisoPostura) ia.avisoPostura = ex.postura(kp);
+        if (a >= ex.extendido) {
+          ia.fase = 'extendido';
+          if (ia.llego) {
+            ia.reps++;
+            if (navigator.vibrate) navigator.vibrate(40);
+            avisoIA(ia.avisoPostura ? `✓ Rep ${ia.reps} contada, pero: ${ia.avisoPostura}` : `✓ Rep ${ia.reps}. ¡Bien hecha!`, ia.avisoPostura ? 'aviso' : 'ok');
+          } else {
+            avisoIA(`✗ No contada. ${ex.faltaRango(ia.min)}`, 'error');
+          }
+        }
+      }
+      pintarContadorIA();
+      return a;
+    }
+
+    // Dibuja los puntos y el esqueleto encima de la imagen.
+    const HUESOS_IA = [['left_shoulder', 'right_shoulder'], ['left_hip', 'right_hip'],
+      ['left_shoulder', 'left_elbow'], ['left_elbow', 'left_wrist'], ['right_shoulder', 'right_elbow'], ['right_elbow', 'right_wrist'],
+      ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'],
+      ['left_hip', 'left_knee'], ['left_knee', 'left_ankle'], ['right_hip', 'right_knee'], ['right_knee', 'right_ankle']];
+    function dibujarPoseIA(kp, ancho, alto, angulo) {
+      const lienzo = document.getElementById('ia-lienzo');
+      if (lienzo.width !== ancho) lienzo.width = ancho;
+      if (lienzo.height !== alto) lienzo.height = alto;
+      const ctx = lienzo.getContext('2d');
+      ctx.clearRect(0, 0, ancho, alto);
+      if (!kp) return;
+      const p = n => kp.find(k => k.name === n && k.score > 0.3);
+      ctx.lineWidth = Math.max(3, ancho / 160);
+      ctx.strokeStyle = '#34d399';
+      HUESOS_IA.forEach(([a, b]) => {
+        const A = p(a), B = p(b);
+        if (A && B) { ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke(); }
+      });
+      ctx.fillStyle = '#38bdf8';
+      kp.filter(k => k.score > 0.3).forEach(k => { ctx.beginPath(); ctx.arc(k.x, k.y, Math.max(4, ancho / 120), 0, 2 * Math.PI); ctx.fill(); });
+      if (angulo != null) {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(8, alto - 40, 92, 32);
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.max(16, ancho / 30)}px sans-serif`;
+        ctx.fillText(`${Math.round(angulo)}°`, 16, alto - 16);
+      }
+    }
+
+    async function alternarCamaraIA() { ia.corriendo ? pararIA() : iniciarIA(); }
+
+    async function iniciarIA() {
+      if (!window.isSecureContext || !navigator.mediaDevices) {
+        avisoIA('La cámara solo funciona desde el enlace https:// de la app.', 'error');
+        return;
+      }
+      const boton = document.getElementById('ia-camara-btn');
+      boton.disabled = true;
+      avisoIA(promesaPose ? 'Abriendo la cámara…' : 'Preparando la IA (solo la primera vez tarda, unos 10 MB)…');
+      let detector;
+      try { detector = await cargarDetectorPose(); }
+      catch (_) {
+        boton.disabled = false;
+        avisoIA('No se pudo descargar la IA (¿sin internet?). Prueba más tarde.', 'error');
+        return;
+      }
+      try {
+        ia.flujo = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: ia.frontal ? 'user' : 'environment', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+        });
+      } catch (e) {
+        boton.disabled = false;
+        avisoErrorCamaraIA(e);
+        return;
+      }
+      const video = document.getElementById('ia-video');
+      video.srcObject = ia.flujo;
+      // Con la cámara frontal lo vemos como un espejo (más natural).
+      const espejo = ia.frontal ? 'scaleX(-1)' : '';
+      video.style.transform = espejo;
+      document.getElementById('ia-lienzo').style.transform = espejo;
+      document.getElementById('ia-visor').classList.remove('hidden');
+      try { await video.play(); } catch (_) { /* autoplay */ }
+      ia.corriendo = true;
+      boton.disabled = false;
+      boton.textContent = '⏹ Parar';
+      reiniciarIA();
+
+      let ocupado = false;
+      const paso = async () => {
+        if (!ia.corriendo) return;
+        if (!ocupado && video.readyState >= 2 && video.videoWidth) {
+          ocupado = true;
+          try {
+            const poses = await detector.estimatePoses(video, { flipHorizontal: false });
+            const kp = poses[0] && poses[0].keypoints;
+            const ang = kp ? procesarPoseIA(kp) : null;
+            dibujarPoseIA(kp, video.videoWidth, video.videoHeight, ang);
+          } catch (_) { /* fotograma perdido */ }
+          ocupado = false;
+        }
+        ia.bucle = requestAnimationFrame(paso);
+      };
+      ia.bucle = requestAnimationFrame(paso);
+    }
+
+    function avisoErrorCamaraIA(e) {
+      const txt = String(e && (e.name || e.message || e));
+      if (/NotAllowed|Permission/i.test(txt)) avisoIA('No hay permiso para la cámara. Actívalo en los ajustes del navegador.', 'error');
+      else if (/NotReadable|in use/i.test(txt)) avisoIA('La cámara la está usando otra app (o el escáner). Ciérrala y prueba otra vez.', 'error');
+      else avisoIA('No se pudo abrir la cámara.', 'error');
+    }
+
+    function pararIA() {
+      ia.corriendo = false;
+      cancelAnimationFrame(ia.bucle);
+      if (ia.flujo) ia.flujo.getTracks().forEach(t => t.stop());
+      ia.flujo = null;
+      const video = document.getElementById('ia-video');
+      if (video) video.srcObject = null;
+      const visor = document.getElementById('ia-visor');
+      if (visor) visor.classList.add('hidden');
+      const boton = document.getElementById('ia-camara-btn');
+      if (boton) boton.textContent = '▶ Cámara';
+    }
+
+    async function girarCamaraIA() {
+      ia.frontal = !ia.frontal;
+      if (ia.corriendo) { pararIA(); await iniciarIA(); }
+    }
+
+    // Analiza una foto: dibuja los puntos y dice el ángulo y si la postura está en rango.
+    async function analizarFotoIA(input) {
+      const archivo = input.files && input.files[0];
+      input.value = '';
+      if (!archivo) return;
+      if (ia.corriendo) pararIA();
+      avisoIA(promesaPose ? 'Analizando la foto…' : 'Preparando la IA (solo la primera vez tarda, unos 10 MB)…');
+      let detector;
+      try { detector = await cargarDetectorPose(); }
+      catch (_) { avisoIA('No se pudo descargar la IA (¿sin internet?). Prueba más tarde.', 'error'); return; }
+      try {
+        const img = await abrirImagen(archivo);
+        const poses = await detector.estimatePoses(img);
+        const kp = poses[0] && poses[0].keypoints;
+        const ex = EJERCICIOS_IA[document.getElementById('ia-ejercicio').value];
+        const a = kp ? ex.medir(kp) : null;
+        // Mostramos la foto con el esqueleto encima.
+        const visor = document.getElementById('ia-visor');
+        visor.classList.remove('hidden');
+        const video = document.getElementById('ia-video');
+        video.srcObject = null;
+        video.style.transform = '';
+        const lienzo = document.getElementById('ia-lienzo');
+        lienzo.style.transform = '';
+        lienzo.width = img.naturalWidth; lienzo.height = img.naturalHeight;
+        const ctx = lienzo.getContext('2d');
+        dibujarPoseIA(kp, img.naturalWidth, img.naturalHeight, a);
+        ctx.globalCompositeOperation = 'destination-over';
+        ctx.drawImage(img, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+        URL.revokeObjectURL(img.src);
+        if (a == null) { avisoIA('No te encuentro bien en la foto: que salga el cuerpo entero, de lado y con buena luz.', 'error'); return; }
+        const postura = ex.postura(kp);
+        const enRango = ex.profundo(a, kp);
+        const fase = a >= ex.extendido ? ex.fases[0] : (enRango ? ex.fases[1] + ' (rango completo ✓)' : 'a medio recorrido');
+        avisoIA(`Ángulo ${Math.round(a)}° · ${fase}.` + (postura ? ' ' + postura : (enRango ? ' Buena profundidad.' : '')), postura ? 'aviso' : 'ok');
+      } catch (_) {
+        avisoIA('No se pudo analizar la foto. Prueba con otra.', 'error');
+      }
+    }
+
+    // Pasa las reps contadas al formulario de Entreno (y elige el ejercicio si hace falta).
+    function pasarRepsIA() {
+      if (!ia.reps) { avisoIA('Aún no hay repeticiones contadas.', 'aviso'); return; }
+      const tipo = document.getElementById('ia-ejercicio').value;
+      const familia = { sentadilla: ['sentadilla_libre', 'sentadilla_pesa'], flexiones: ['flexiones', 'flexiones_lastradas'],
+        dominadas: ['dominadas_libre', 'dominadas_lastradas'], fondos: ['fondos_libre', 'fondos_lastrados'] }[tipo];
+      const select = document.getElementById('ejercicio-select');
+      if (!familia.includes(select.value)) {
+        select.value = familia[0];
+        actualizarFormularioEjercicio();
+      }
+      const reps = document.getElementById('reps-input');
+      reps.value = ia.reps;
+      const series = document.getElementById('series-input');
+      if (!series.value) series.value = 1;
+      reps.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      avisoIA(`${ia.reps} reps pasadas al formulario. Revisa series y pulsa «Guardar».`, 'ok');
+    }
+
+    // Si la app pasa a segundo plano, apagamos la cámara de la IA.
+    document.addEventListener('visibilitychange', () => { if (document.hidden && ia.corriendo) pararIA(); });
+
+    // Al abrir el panel, preseleccionamos el ejercicio que tengas elegido en el formulario.
+    document.getElementById('panel-ia').addEventListener('toggle', function () {
+      if (!this.open) return;
+      const v = document.getElementById('ejercicio-select').value;
+      const tipo = /sentadilla/.test(v) ? 'sentadilla' : /flexiones/.test(v) ? 'flexiones' : /dominadas/.test(v) ? 'dominadas' : /fondos/.test(v) ? 'fondos' : null;
+      if (tipo && !ia.corriendo) { document.getElementById('ia-ejercicio').value = tipo; reiniciarIA(); }
+    });
+
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
     // Se guarda por día: { "2026-11-27": 750, ... } y una meta diaria (2000 ml por defecto).
     const META_AGUA_DEFECTO = 2000;
@@ -2253,6 +2629,8 @@
       if (cual !== 'entreno') cual = 'nutri';
       // Si dejas Nutrición con la cámara abierta, la cerramos (no hace falta tenerla encendida).
       if (cual === 'entreno' && (lectorCodigo || controlesZXing)) cerrarEscanerCodigo();
+      // Y si dejas Entreno con la cámara de la IA encendida, también la apagamos.
+      if (cual !== 'entreno' && ia.corriendo) pararIA();
       document.getElementById('seccion-nutri').classList.toggle('hidden', cual !== 'nutri');
       document.getElementById('seccion-entreno').classList.toggle('hidden', cual !== 'entreno');
       const base = 'py-1.5 rounded-xl text-sm font-semibold ';
