@@ -59,27 +59,30 @@
        "html body" hace que estas reglas ganen a las clases de Tailwind.
        ========================================================= */
     html body.bg-slate-950 {
-      background-color: #0a0f1c;
+      background-color: #070b14;
+      /* Trasluz más marcado: luces neutras plata/azuladas sobre el fondo oscuro */
       background-image:
-        radial-gradient(900px 520px at 0% -5%, rgba(125, 211, 252, 0.13), transparent 60%),
-        radial-gradient(700px 480px at 105% 25%, rgba(167, 243, 208, 0.09), transparent 60%),
-        radial-gradient(800px 600px at 40% 110%, rgba(148, 163, 184, 0.14), transparent 60%);
+        radial-gradient(640px 420px at 8% 2%, rgba(203, 213, 225, 0.26), transparent 65%),
+        radial-gradient(560px 460px at 98% 22%, rgba(186, 230, 253, 0.20), transparent 65%),
+        radial-gradient(620px 520px at 15% 62%, rgba(148, 163, 184, 0.20), transparent 65%),
+        radial-gradient(700px 520px at 85% 95%, rgba(191, 219, 254, 0.16), transparent 65%),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.05) 0%, transparent 35%, rgba(255, 255, 255, 0.04) 70%, transparent 100%);
       background-attachment: fixed;
     }
     /* Tarjetas principales: cristal esmerilado */
     html body #seccion-nutri, html body #seccion-entreno,
     html body > details, html body #dialogo > div {
       background: rgba(15, 23, 42, 0.58);
-      -webkit-backdrop-filter: blur(16px) saturate(140%);
-      backdrop-filter: blur(16px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      backdrop-filter: blur(18px) saturate(150%);
       border: 1px solid rgba(255, 255, 255, 0.10);
       box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
     /* Barra de pestañas: tira de cristal como el Dock */
     html body #barra-pestanas {
       background: rgba(10, 15, 28, 0.55);
-      -webkit-backdrop-filter: blur(16px) saturate(140%);
-      backdrop-filter: blur(16px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+      backdrop-filter: blur(18px) saturate(150%);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     /* Paneles dentro de las tarjetas: un velo claro muy suave (sin más desenfoque, va más fluido) */
@@ -379,6 +382,15 @@
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
   <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-2">
     <h2 class="text-sm font-semibold text-emerald-300">Entrenamiento y Progresión <span class="text-[11px] text-slate-500 font-normal">pesas · calistenia · lastrada</span></h2>
+    <!-- NUEVO: tu nombre (para los mensajes de ánimo). Se guarda en este móvil. -->
+    <div class="flex items-center gap-1.5">
+      <label for="nombre-usuario" class="text-xs text-slate-500 shrink-0">👤</label>
+      <input id="nombre-usuario" type="text" maxlength="20" autocomplete="given-name" placeholder="Tu nombre (para darte ánimos)"
+        onchange="guardarNombre()" onkeydown="if (event.key === 'Enter') this.blur()"
+        class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1 text-xs" />
+    </div>
+    <!-- NUEVO: mensaje de ánimo (sale unos segundos y se va solo) -->
+    <p id="animo" class="hidden text-center text-sm font-semibold text-slate-100 bg-white/10 border border-white/15 rounded-xl px-3 py-1.5 transition-opacity duration-300" aria-live="polite"></p>
 
     <select id="ejercicio-select" onchange="actualizarFormularioEjercicio(); document.getElementById('aviso-entreno').textContent = '';" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm">
       <optgroup label="2. Fuerza con pesas (progresión por carga)">
@@ -2343,6 +2355,7 @@
       aviso.className = 'text-[11px] text-emerald-400';
       aviso.textContent = `Guardado ✓ · ${prog.badge}`;
       iniciarDescanso();   // NUEVO: arranca el descanso
+      animar('serie');     // NUEVO: mensaje de ánimo
     }
 
     // NUEVO: borrar una comida o un entreno (pide confirmación antes).
@@ -2943,6 +2956,7 @@
         if (!descanso.avisado) {
           descanso.avisado = true;
           if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          animar('fin');
           clearInterval(descanso.intervalo);
           // Se cierra solo pasados 20 s si no lo tocas.
           descanso.intervalo = setTimeout(cerrarDescanso, 20000);
@@ -2967,6 +2981,46 @@
     }
     // Al volver a la app, el reloj se pone al día (sigue contando aunque salgas).
     document.addEventListener('visibilitychange', () => { if (!document.hidden && descanso.fin && !descanso.avisado) pintarDescanso(); });
+
+    // ---------- NUEVO: MENSAJES DE ÁNIMO CON TU NOMBRE ----------
+    function nombreUsuario() {
+      try { return (localStorage.getItem('ft4_userName') || '').trim(); } catch (e) { return ''; }
+    }
+    function guardarNombre() {
+      const valor = document.getElementById('nombre-usuario').value.trim().slice(0, 20);
+      try {
+        if (valor) localStorage.setItem('ft4_userName', valor);
+        else localStorage.removeItem('ft4_userName');
+      } catch (e) { /* nada */ }
+      document.getElementById('nombre-usuario').value = valor;
+      if (valor) animar('saludo');
+    }
+
+    // Frases: {n} se cambia por ", Nombre" (o desaparece si no hay nombre).
+    const FRASES_ANIMO = {
+      saludo: ['¡Hola{n}! Vamos a entrenar. 💪'],
+      inicio: ['¡Vamos{n}! A por todas. 💪', '¡Vamos{n}! Hoy toca superarse.', '¡A por ello{n}! Técnica y constancia.'],
+      serie:  ['¡Bien hecho{n}! Serie registrada. ✅', '¡Bien hecho{n}! Una más en el saco.', '¡Así se hace{n}! Serie guardada.'],
+      fin:    ['¡Has terminado el descanso{n}! Gran trabajo, a por la siguiente. 🔥', '¡Has terminado{n}! Gran trabajo: siguiente serie.']
+    };
+    let temporizadorAnimo = null;
+    function animar(tipo) {
+      const lista = FRASES_ANIMO[tipo];
+      const caja = document.getElementById('animo');
+      if (!lista || !caja) return;
+      const nombre = nombreUsuario();
+      const frase = lista[Math.floor(Math.random() * lista.length)].replace('{n}', nombre ? ', ' + nombre : '');
+      caja.textContent = frase;      // textContent: el nombre se muestra tal cual, sin riesgos
+      caja.classList.remove('hidden');
+      caja.style.opacity = '1';
+      clearTimeout(temporizadorAnimo);
+      temporizadorAnimo = setTimeout(() => {
+        caja.style.opacity = '0';
+        temporizadorAnimo = setTimeout(() => caja.classList.add('hidden'), 400);
+      }, 4000);
+    }
+    document.getElementById('nombre-usuario').value = nombreUsuario();
+    document.getElementById('ejercicio-select').addEventListener('change', () => animar('inicio'));
 
     // ---------- NUEVO: MEDIDOR DE AGUA ----------
     // Se guarda por día: { "2026-11-27": 750, ... } y una meta diaria (2000 ml por defecto).
@@ -3033,6 +3087,9 @@
       const base = 'py-1.5 rounded-xl text-sm font-semibold ';
       document.getElementById('tab-nutri').className = base + (cual === 'nutri' ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-300');
       document.getElementById('tab-entreno').className = base + (cual === 'entreno' ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300');
+      // Ánimo al entrar en Entreno (no al abrir la app).
+      if (cual === 'entreno' && document.getElementById('tab-entreno').dataset.listo) animar('inicio');
+      document.getElementById('tab-entreno').dataset.listo = '1';
       try { localStorage.setItem('ft4_tab', cual); } catch (e) { /* nada */ }
       if (window.scrollY > 120) window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -3047,7 +3104,7 @@
     render();
 
     // ---------- NUEVO: COPIA DE SEGURIDAD ----------
-    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest'];
+    const CLAVES_DATOS = ['ft4_foods', 'ft4_workouts', 'ft4_customFoods', 'ft4_targets', 'ft4_water', 'ft4_waterGoal', 'ft4_rest', 'ft4_userName'];
 
     function exportarDatos() {
       const copia = { app: 'FitTrack', version: 1, fecha: new Date().toISOString(), datos: {} };
@@ -3078,7 +3135,7 @@
         if (!await confirmar('¿Sustituir tus datos actuales por los de esta copia?')) return;
         CLAVES_DATOS.forEach(clave => {
           // Las copias antiguas no traen el agua: en ese caso dejamos la que ya tienes.
-          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest') && !(clave in copia.datos)) return;
+          if ((clave.startsWith('ft4_water') || clave === 'ft4_rest' || clave === 'ft4_userName') && !(clave in copia.datos)) return;
           const valor = copia.datos[clave];
           if (valor === null || valor === undefined) localStorage.removeItem(clave);
           else localStorage.setItem(clave, JSON.stringify(valor));
