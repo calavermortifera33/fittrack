@@ -198,7 +198,7 @@
     <div id="bloque-escaner" class="scroll-mt-14 space-y-1.5 bg-slate-800/60 border border-slate-700 rounded-xl p-2">
 
       <!-- PRIMERA FILA: los 3 accesos rápidos de cámara/escáner -->
-      <div class="grid grid-cols-3 gap-1.5">
+      <div class="grid grid-cols-3 gap-2">
         <button id="btn-camara" onclick="abrirEscanerCodigo()" title="Código de barras" class="bg-slate-700 hover:bg-slate-600 font-semibold py-1.5 rounded-xl text-xs whitespace-nowrap">
           ▥ Código
         </button>
@@ -258,7 +258,7 @@
       <ul id="resultados-busqueda" class="space-y-1.5 text-xs"></ul>
 
       <!-- Si la cámara no va, puedes escribir el número que hay debajo de las barras -->
-      <div class="flex gap-2">
+      <div class="flex gap-2.5">
         <input id="codigo-input" type="text" inputmode="numeric" placeholder="Nº del código de barras"
           onkeydown="if (event.key === 'Enter') buscarCodigo(this.value)"
           class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
@@ -279,7 +279,7 @@
 
     <!-- NUEVO: MEDIDOR DE AGUA del día elegido. Suma de un toque con los botones rápidos. -->
     <div id="bloque-agua" class="bg-sky-950/40 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-2">
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-1 whitespace-nowrap">
             <span class="text-xs">💧</span>
@@ -461,11 +461,11 @@
     <!-- NUEVO: SENSACIÓN DEL DÍA. Ajusta la sugerencia de hoy sin culpa (se guarda por fecha). -->
     <div id="sensacion-dia" class="space-y-1">
       <p class="text-[11px] text-slate-500">¿Cómo te sientes hoy?</p>
-      <div class="grid grid-cols-4 gap-1">
-        <button data-sensacion="normal" onclick="fijarSensacion('normal')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">😐 Normal</button>
-        <button data-sensacion="tope" onclick="fijarSensacion('tope')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">⚡ A tope</button>
-        <button data-sensacion="cansado" onclick="fijarSensacion('cansado')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">🥱 Cansado</button>
-        <button data-sensacion="agujetas" onclick="fijarSensacion('agujetas')" class="mini h-8 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">💪 Agujetas</button>
+      <div class="grid grid-cols-2 gap-2">
+        <button data-sensacion="normal" onclick="fijarSensacion('normal')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">😐 Normal</button>
+        <button data-sensacion="tope" onclick="fijarSensacion('tope')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">⚡ A tope</button>
+        <button data-sensacion="cansado" onclick="fijarSensacion('cansado')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">🥱 Cansado</button>
+        <button data-sensacion="agujetas" onclick="fijarSensacion('agujetas')" class="mini h-9 rounded-lg text-[11px] whitespace-nowrap border bg-slate-800 border-slate-700">💪 Agujetas</button>
       </div>
     </div>
 
@@ -3308,7 +3308,7 @@
         const actual = sensacionDe(fechaSeleccionada());
         document.querySelectorAll('#sensacion-dia [data-sensacion]').forEach(b => {
           const activa = b.dataset.sensacion === actual;
-          b.className = 'mini h-8 rounded-lg text-[11px] whitespace-nowrap border ' +
+          b.className = 'mini h-9 rounded-lg text-[11px] whitespace-nowrap border ' +
             (activa ? 'bg-sky-500 text-slate-950 font-semibold' : 'bg-slate-800 border-slate-700 hover:bg-slate-700');
           b.setAttribute('aria-pressed', activa ? 'true' : 'false');
         });
