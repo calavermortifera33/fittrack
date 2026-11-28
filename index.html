@@ -247,6 +247,30 @@
     @media (max-width: 340px) { html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { display: none; } }
     html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { font-size: 9.5px; }
     /* Tarjetas de ejercicio compactas: consejo en 2 líneas como mucho (completo al tocar el historial) */
+    /* WIDGET (como el del móvil): contenedor cristal oscuro con 1 bloque grande a la izquierda
+       (2 filas de alto) + 4 cajitas en 2×2 a la derecha; las 3 restantes, en una fila debajo. */
+    html body .cajitas.cajitas-4.widget {
+      grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.4rem; padding: 0.45rem;
+      background: rgba(0, 0, 0, 0.26);
+      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 1.15rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+    html body .cajitas.widget > details { grid-column: span 3; }
+    html body .cajitas.widget > details:first-child { grid-column: span 6; grid-row: span 2; }
+    html body .cajitas.widget > details:nth-child(n+6) { grid-column: span 4; }
+    html body .cajitas.widget > details[open] { grid-column: 1 / -1; grid-row: auto; }
+    html body .cajitas.cajitas-4.widget > details:not([open]) > summary.caja-boton { min-height: 60px; }
+    /* Bloque grande */
+    html body .cajitas.widget > details:first-child:not([open]) { display: flex; }
+    html body .cajitas.widget > details:first-child:not([open]) > summary.caja-boton { flex: 1; width: 100%; gap: 4px; }
+    html body .cajitas.widget > details:first-child:not([open]) .caja-icono { font-size: 40px; }
+    html body .cajitas.widget > details:first-child:not([open]) .caja-texto { font-size: 13.5px; }
+    html body .cajitas.widget > details:first-child:not([open]) .caja-dato { font-size: 11px; display: block; white-space: normal; }
+    html body .cajitas.widget > details:first-child {
+      background: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.45) 55%);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
     /* Tarjeta en UNA línea: nombre (con "…" solo si de verdad no cabe) · recomendación · +1 */
     html body .tarjeta-ejercicio summary.fila-ejercicio {
       list-style: none; display: flex; align-items: center; gap: 0.4rem; min-height: 34px; padding: 0.2rem 0;
@@ -268,7 +292,7 @@
       text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
     html body .cajitas > details > summary::-webkit-details-marker { display: none; }
-    html body .cajitas .caja-icono { font-size: 27px; line-height: 1.1; margin-bottom: 2px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
+    html body .cajitas .caja-icono { color: #e2e8f0; font-size: 27px; line-height: 1.1; margin-bottom: 2px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
     /* Etiqueta: si no cabe, pasa a 2 líneas limpias en vez de cortarse con "…" */
     html body .cajitas .caja-texto {
       font-size: 11.5px; font-weight: 600; color: #e2e8f0; line-height: 1.15; max-width: 100%;
@@ -354,10 +378,10 @@
 
 
     <!-- NUEVO: PANEL DE CAJITAS (3 columnas, icono + etiqueta). La que abras se despliega a todo el ancho. -->
-    <div id="cajitas-nutri-arriba" class="cajitas cajitas-4 grid grid-cols-4 gap-1.5">
+    <div id="cajitas-nutri-arriba" class="cajitas cajitas-4 widget grid grid-cols-4 gap-1.5">
     <!-- NUEVO: desplegable cerrado por defecto. Se abre solo si una cámara o un aviso lo necesita. -->
     <details id="desplegable-escaner" class="scroll-mt-14 bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🔍</span><span class="caja-texto">Escanear</span><span class="caja-dato">código · foto</span></summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🔍</span><span class="caja-texto">Escanear o buscar</span><span class="caja-dato">código · fresco · tabla</span></summary>
     <div id="bloque-escaner" class="scroll-mt-14 space-y-1.5 pt-1.5 pb-1">
 
       <!-- PRIMERA FILA: los 3 accesos rápidos de cámara/escáner -->
@@ -679,7 +703,11 @@
 
     <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
     <!-- NUEVO: desplegables en 2 columnas mientras están cerrados; el que abras pasa a ancho completo -->
-    <div id="desplegables-entreno" class="cajitas cajitas-4 grid grid-cols-4 gap-1.5">
+    <div id="desplegables-entreno" class="cajitas cajitas-4 widget grid grid-cols-4 gap-1.5">
+    <details id="desplegable-radar" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">📡</span><span class="caja-texto">Radar semanal</span><span class="caja-dato" id="radar-resumen">7 días</span></summary>
+      <div id="radar-constancia" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5"></div>
+    </details>
     <!-- NUEVO: bloques secundarios recogidos en desplegables (cerrados por defecto) -->
     <details id="desplegable-sensacion" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
       <summary class="caja-boton cursor-pointer"><span class="caja-icono" id="sensacion-icono" aria-hidden="true">🙂</span><span class="caja-texto">Hoy</span><span class="caja-dato" id="sensacion-resumen">¿cómo estás?</span></summary>
@@ -709,10 +737,6 @@
       <button id="btn-voz" onclick="alternarVoz()" title="Leer los ánimos en voz alta (🔊 activada / 🔇 desactivada)" aria-pressed="true"
         class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1 rounded-xl text-xs whitespace-nowrap">🔊 Voz</button>
     </div>
-    </details>
-    <details id="desplegable-radar" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">📡</span><span class="caja-texto">Radar</span><span class="caja-dato" id="radar-resumen">7 días</span></summary>
-      <div id="radar-constancia" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5"></div>
     </details>
     <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
     <details id="desplegable-combustible" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
@@ -3927,7 +3951,7 @@
           const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p); return p;
         };
         const resumen = document.getElementById('radar-resumen');
-        if (resumen) resumen.textContent = `${entrenados.length}/7 días`;
+        if (resumen) resumen.textContent = `${entrenados.length}/7 días · ${series} series`;
         linea('Últimos 7 días:', 'text-slate-500');
 
         // Fila de 7 puntitos con la inicial del día
