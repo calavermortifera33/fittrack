@@ -215,9 +215,9 @@
     html body #cajitas-nutri-arriba { margin-top: 0.6rem; margin-bottom: 0.7rem; }
     /* Entreno: 4 columnas para que las 7 cajitas (con IA postura) entren en 2 filas */
     html body .cajitas.cajitas-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
-    html body .cajitas.cajitas-4 > details:not([open]) > summary.caja-boton { min-height: 58px; padding: 0.4rem 0.15rem 0.35rem; }
+    html body .cajitas.cajitas-4 > details:not([open]) > summary.caja-boton { min-height: 66px; padding: 0.4rem 0.15rem 0.35rem; }
     html body .cajitas.cajitas-4 .caja-texto { font-size: 11px; }
-    html body .cajitas.cajitas-4 .caja-icono { font-size: 18px; }
+    html body .cajitas.cajitas-4 .caja-icono { font-size: 24px; }
     /* Pantallas muy estrechas: sin dato pequeño en las cajitas de 4 columnas (la etiqueta manda) */
     @media (max-width: 340px) { html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { display: none; } }
     html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { font-size: 9.5px; }
@@ -236,12 +236,12 @@
     html body .tarjeta-ejercicio details[open] > summary.consejo-ejercicio { display: none; }
     html body .tarjeta-ejercicio details.historial-ejercicio { background: transparent; box-shadow: none; padding: 0; }
     html body .cajitas > details > summary.caja-boton {
-      list-style: none; box-sizing: border-box; min-height: 64px; padding: 0.45rem 0.3rem 0.4rem;
+      list-style: none; box-sizing: border-box; min-height: 72px; padding: 0.45rem 0.3rem 0.4rem;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
       text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
     html body .cajitas > details > summary::-webkit-details-marker { display: none; }
-    html body .cajitas .caja-icono { font-size: 20px; line-height: 1.1; }
+    html body .cajitas .caja-icono { font-size: 27px; line-height: 1.1; margin-bottom: 2px; filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35)); }
     /* Etiqueta: si no cabe, pasa a 2 líneas limpias en vez de cortarse con "…" */
     html body .cajitas .caja-texto {
       font-size: 11.5px; font-weight: 600; color: #e2e8f0; line-height: 1.15; max-width: 100%;
@@ -254,7 +254,7 @@
     html body .cajitas > details[open] > summary.caja-boton {
       flex-direction: row; justify-content: flex-start; gap: 0.45rem; min-height: 40px; padding: 0.4rem 2rem 0.4rem 0.7rem; text-align: left;
     }
-    html body .cajitas > details[open] .caja-icono { font-size: 17px; }
+    html body .cajitas > details[open] .caja-icono { font-size: 20px; margin-bottom: 0; }
     html body .cajitas > details[open] .caja-texto { font-size: 12.5px; }
     html body .cajitas > details[open] .caja-dato { font-size: 11px; }
     /* Abierta: a todo el ancho, con ✕ para cerrar */
