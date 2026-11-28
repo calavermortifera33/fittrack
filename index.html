@@ -199,10 +199,10 @@
     html body .cajitas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 0.4rem; }
     html body .cajitas > details {
       position: relative; box-sizing: border-box; min-width: 0; padding: 0;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.10);
-      border-radius: 0.9rem;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.15);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.05));
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 0.85rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 6px rgba(0, 0, 0, 0.18);
       transition: background-color .15s, border-color .15s;
     }
     html body .cajitas > details:not([open]):active { transform: scale(0.97); }
@@ -214,14 +214,24 @@
     html body #titulo-nutricion { letter-spacing: .01em; }
     html body #cajitas-nutri-arriba { margin-top: 0.6rem; margin-bottom: 0.7rem; }
     /* Entreno: 4 columnas para que las 7 cajitas (con IA postura) entren en 2 filas */
-    html body .cajitas.cajitas-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; }
-    html body .cajitas.cajitas-4 > details:not([open]) > summary.caja-boton { min-height: 60px; padding: 0.4rem 0.2rem 0.35rem; }
+    html body .cajitas.cajitas-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
+    html body .cajitas.cajitas-4 > details:not([open]) > summary.caja-boton { min-height: 58px; padding: 0.4rem 0.15rem 0.35rem; }
     html body .cajitas.cajitas-4 .caja-texto { font-size: 11px; }
+    html body .cajitas.cajitas-4 .caja-icono { font-size: 18px; }
+    /* Pantallas muy estrechas: sin dato pequeño en las cajitas de 4 columnas (la etiqueta manda) */
+    @media (max-width: 340px) { html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { display: none; } }
     html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { font-size: 9.5px; }
     /* Tarjetas de ejercicio compactas: consejo en 2 líneas como mucho (completo al tocar el historial) */
     html body .tarjeta-ejercicio summary.consejo-ejercicio {
-      list-style: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-bottom: 1px;
+      list-style: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-bottom: 1px;
     }
+    /* Nombre del ejercicio: nunca se corta feo (si es largo, baja a 2 líneas) */
+    html body .tarjeta-ejercicio .nombre-ejercicio { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.2; }
+    /* Entreno: menos hueco entre bloques superiores y lista */
+    html body #desplegables-entreno { margin-top: 0.15rem; }
+    html body #lista-entrenos > * + * { margin-top: 0.35rem; }
+    /* Nombres largos en listas (comidas, alimentos, combos) parten línea en vez de salirse */
+    html body #lista-comidas li, html body #lista-mis-alimentos li, html body #lista-combos li { overflow-wrap: anywhere; }
     html body .tarjeta-ejercicio summary.consejo-ejercicio::-webkit-details-marker { display: none; }
     html body .tarjeta-ejercicio details[open] > summary.consejo-ejercicio { display: none; }
     html body .tarjeta-ejercicio details.historial-ejercicio { background: transparent; box-shadow: none; padding: 0; }
@@ -232,7 +242,12 @@
     }
     html body .cajitas > details > summary::-webkit-details-marker { display: none; }
     html body .cajitas .caja-icono { font-size: 20px; line-height: 1.1; }
-    html body .cajitas .caja-texto { font-size: 11.5px; font-weight: 600; color: #e2e8f0; line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Etiqueta: si no cabe, pasa a 2 líneas limpias en vez de cortarse con "…" */
+    html body .cajitas .caja-texto {
+      font-size: 11.5px; font-weight: 600; color: #e2e8f0; line-height: 1.15; max-width: 100%;
+      white-space: normal; overflow-wrap: normal; word-break: keep-all; hyphens: none;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
     html body .cajitas .caja-dato { font-size: 10px; color: rgba(203, 213, 225, 0.70); line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* Cajita sola en su fila: icono a la izquierda y textos en línea */
     html body .cajitas:not(.cajitas-4) > details:last-child:nth-child(3n+1):not([open]) > summary.caja-boton,
@@ -2461,7 +2476,7 @@
       }
       const sensacion = sensacionDe(fechaSeleccionada());
       const prog = ajustarProgresionPorSensacion(ex, ultimo, calcularProgresion(ex, ultimo), sensacion);
-      caja.innerHTML = `<div class="bg-slate-800/60 rounded-xl px-3 py-2">
+      caja.innerHTML = `<div class="bg-slate-800/60 rounded-xl px-2.5 py-1.5 leading-snug">
         <p class="text-slate-400">Última vez (${fechaBonita(ultimo.date)}): ${detalleEntreno(ex, ultimo)}</p>
         <p class="text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</p>
         ${sensacion !== 'normal' ? `<p class="text-sky-300">${escaparHTML(prog.tip)}</p>` : ''}
@@ -2723,20 +2738,19 @@
             </li>`)
             .join('');
 
-          // COMPACTA (2 filas): 1) nombre · recomendación · +1 serie  2) consejo en una línea; al tocarlo
-          // se despliega el consejo completo y el historial.
-          return `<div class="tarjeta-ejercicio bg-slate-800/80 border border-slate-700 rounded-xl px-2 py-1 text-[11px] leading-snug">
-            <div class="flex items-center gap-1.5 min-h-[28px]">
-              <span class="min-w-0 flex-1 truncate font-semibold text-[12.5px]">${escaparHTML(ex.name)}</span>
-              <span class="shrink-0 text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</span>
+          // COMPACTA (2 filas): 1) nombre + «+1 serie»  2) recomendación · consejo (2 líneas como mucho);
+          // al tocar la 2ª fila se despliega el consejo completo y el historial.
+          return `<div class="tarjeta-ejercicio bg-slate-800/80 border border-slate-700 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug">
+            <div class="flex items-center gap-2 min-h-[26px]">
+              <span class="nombre-ejercicio min-w-0 flex-1 font-semibold text-[12.5px]">${escaparHTML(ex.name)}</span>
               ${ultimo.date === fechaSeleccionada()
                 ? `<button onclick="sumarSerieARegistro('${escaparHTML(ultimo.id)}')" title="Añadir una serie igual a la última de hoy"
                     class="mini shrink-0 h-7 px-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-[11px] whitespace-nowrap">+1 serie</button>`
                 : ''}
             </div>
             <details class="historial-ejercicio">
-              <summary class="consejo-ejercicio cursor-pointer text-sky-300" title="Toca para ver el consejo completo y el historial"><span class="text-slate-500">📜 ${historial.length} ·</span> ${escaparHTML(prog.tip)}</summary>
-              <p class="text-sky-300 pt-0.5">${escaparHTML(prog.tip)}</p>
+              <summary class="consejo-ejercicio cursor-pointer" title="Toca para ver el consejo completo y el historial"><span class="text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</span><span class="text-slate-500"> · 📜 ${historial.length} · </span><span class="text-sky-300">${escaparHTML(prog.tip)}</span></summary>
+              <p class="pt-0.5"><span class="text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</span> <span class="text-sky-300">${escaparHTML(prog.tip)}</span></p>
               <p class="text-slate-500">${modalidad} · Historial (${historial.length})</p>
               <ul class="space-y-0.5 pt-0.5 pb-0.5 text-slate-300">${filas}</ul>
             </details>
@@ -3256,7 +3270,7 @@
         if (!resumen) return;
         const nombre = nombreUsuario();
         const voz = vozActiva() && hayVoz() ? '🔊 Voz' : '🔇 Voz';
-        resumen.textContent = `${nombre || 'sin nombre'} · ${voz.split(' ')[0]}`;   // textContent: seguro
+        resumen.textContent = `${voz.split(' ')[0]} ${nombre || 'voz'}`;   // textContent: seguro
       } catch (e) { /* nada */ }
     }
 
