@@ -194,30 +194,47 @@
     }
     html body section details > summary { padding-top: 2px; padding-bottom: 2px; }
     /* Entreno: desplegables en 2 columnas; el abierto ocupa todo el ancho */
-    /* CAJITAS: desplegables en cuadrícula de 2 columnas, como botones/tarjetas compactas.
-       La que abres ocupa todo el ancho; el resto se recoloca sin dejar huecos. */
-    html body .cajitas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 0.375rem; }
+    /* PANEL DE CAJITAS (estilo widget del móvil): cada desplegable es un botón cuadrado con
+       icono arriba, etiqueta corta y un dato pequeño. Al tocarlo se abre a todo el ancho. */
+    html body .cajitas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row dense; gap: 0.4rem; }
     html body .cajitas > details {
-      position: relative; box-sizing: border-box; min-width: 0; padding: 0 0.6rem;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.09);
-      border-radius: 0.75rem;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      position: relative; box-sizing: border-box; min-width: 0; padding: 0;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 0.9rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.15);
       transition: background-color .15s, border-color .15s;
     }
-    html body .cajitas > details:hover { background: rgba(255, 255, 255, 0.09); }
-    html body .cajitas > details[open] { grid-column: 1 / -1; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.14); }
-    html body .cajitas > details:last-child:nth-child(odd) { grid-column: 1 / -1; }
-    html body .cajitas > details > summary {
-      list-style: none; display: block; box-sizing: border-box; min-height: 32px; padding: 0.45rem 1rem 0.45rem 0;
-      font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    html body .cajitas > details:not([open]):active { transform: scale(0.97); }
+    html body .cajitas > details:hover { background: rgba(255, 255, 255, 0.10); }
+    /* La última, si queda sola en su fila, ocupa todo el ancho (en horizontal) */
+    html body .cajitas > details:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
+    html body .cajitas > details > summary.caja-boton {
+      list-style: none; box-sizing: border-box; min-height: 64px; padding: 0.45rem 0.3rem 0.4rem;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+      text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
     }
     html body .cajitas > details > summary::-webkit-details-marker { display: none; }
-    html body .cajitas > details > summary::after {
-      content: '▾'; position: absolute; right: 0.55rem; top: 0.5rem; font-size: 11px; opacity: .55; transition: transform .15s;
+    html body .cajitas .caja-icono { font-size: 20px; line-height: 1.1; }
+    html body .cajitas .caja-texto { font-size: 11.5px; font-weight: 600; color: #e2e8f0; line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    html body .cajitas .caja-dato { font-size: 10px; color: rgba(203, 213, 225, 0.70); line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Cajita sola en su fila: icono a la izquierda y textos en línea */
+    html body .cajitas > details:last-child:nth-child(3n+1):not([open]) > summary.caja-boton,
+    html body .cajitas > details[open] > summary.caja-boton {
+      flex-direction: row; justify-content: flex-start; gap: 0.45rem; min-height: 40px; padding: 0.4rem 2rem 0.4rem 0.7rem; text-align: left;
     }
-    html body .cajitas > details[open] > summary::after { transform: rotate(180deg); }
-    html body .cajitas > details[open] > summary { border-bottom: 1px solid rgba(255, 255, 255, 0.07); margin-bottom: 0.25rem; }
+    html body .cajitas > details[open] .caja-icono { font-size: 17px; }
+    html body .cajitas > details[open] .caja-texto { font-size: 12.5px; }
+    html body .cajitas > details[open] .caja-dato { font-size: 11px; }
+    /* Abierta: a todo el ancho, con ✕ para cerrar */
+    html body .cajitas > details[open] {
+      grid-column: 1 / -1; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.16);
+    }
+    html body .cajitas > details[open] > summary.caja-boton { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    html body .cajitas > details[open] > summary.caja-boton::after {
+      content: '✕'; position: absolute; right: 0.7rem; top: 0.6rem; font-size: 12px; opacity: .65;
+    }
+    html body .cajitas > details[open] > :not(summary) { padding-left: 0.7rem; padding-right: 0.7rem; padding-bottom: 0.4rem; }
     /* Dentro de los desplegables, los bloques no repiten fondo (el velo ya lo pone el desplegable) */
     html body #bloque-escaner, html body #que-como-ahora, html body #radar-constancia, html body #combustible-rendimiento {
       background: transparent; box-shadow: none; border-color: transparent;
@@ -278,11 +295,11 @@
          3) Foto de la TABLA NUTRICIONAL impresa -> apoyo para revisar/rellenar. -->
 
 
-    <!-- NUEVO: CAJITAS de acceso (2 columnas cerradas; la que abras ocupa todo el ancho) -->
-    <div id="cajitas-nutri-arriba" class="cajitas grid grid-cols-2 gap-1.5">
+    <!-- NUEVO: PANEL DE CAJITAS (3 columnas, icono + etiqueta). La que abras se despliega a todo el ancho. -->
+    <div id="cajitas-nutri-arriba" class="cajitas grid grid-cols-3 gap-1.5">
     <!-- NUEVO: desplegable cerrado por defecto. Se abre solo si una cámara o un aviso lo necesita. -->
     <details id="desplegable-escaner" class="scroll-mt-14 bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">🔍 Escanear / buscar</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🔍</span><span class="caja-texto">Escanear</span><span class="caja-dato">código · foto</span></summary>
     <div id="bloque-escaner" class="scroll-mt-14 space-y-1.5 pt-1.5 pb-1">
 
       <!-- PRIMERA FILA: los 3 accesos rápidos de cámara/escáner -->
@@ -359,8 +376,97 @@
     </details>
     <!-- NUEVO: ¿QUÉ COMO AHORA? Sugerencias según lo que te falta hoy (tus alimentos, sin internet) -->
     <details id="desplegable-que-como" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="que-como-resumen" class="cursor-pointer text-xs text-sky-300 font-semibold">🍽️ ¿Qué como ahora?</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🍽️</span><span class="caja-texto">¿Qué como?</span><span class="caja-dato" id="que-como-resumen">ideas para hoy</span></summary>
       <div id="que-como-ahora" class="space-y-1 pt-1 pb-0.5"></div>
+    </details>
+    <details class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🎯</span><span class="caja-texto">Objetivos</span><span class="caja-dato">kcal y macros</span></summary>
+      <div class="space-y-1.5 pt-2">
+        <div class="grid grid-cols-4 gap-2">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
+            <input id="obj-kcal" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
+            <input id="obj-p" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
+            <input id="obj-c" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
+            <input id="obj-f" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+        </div>
+        <p id="aviso-objetivos" class="text-[11px] text-slate-400 empty:hidden"></p>
+        <div class="flex gap-2">
+          <button onclick="restablecerObjetivos()" class="flex-1 bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm">Restablecer</button>
+          <button onclick="guardarObjetivos()" class="flex-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">Guardar objetivos</button>
+        </div>
+      </div>
+    </details>
+    <!-- NUEVO: MI SEMANA: medias de 7 días, constancia de proteína, kcal y agua -->
+    <details id="resumen-semana" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">📊</span><span class="caja-texto">Mi semana</span><span class="caja-dato" id="resumen-semana-titulo">7 días</span></summary>
+      <div id="resumen-semana-nutri" class="space-y-0.5 pt-1 text-[11px] leading-snug"></div>
+    </details>
+
+    <!-- NUEVO: COMIDAS RÁPIDAS / COMBOS. Guarda las comidas de un día y repítelas de un toque. -->
+    <details id="combos-rapidos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">⚡</span><span class="caja-texto">Combos</span><span class="caja-dato" id="combos-titulo">comidas rápidas</span></summary>
+      <div class="space-y-1.5 pt-2">
+        <ul id="lista-combos" class="space-y-1 text-[11px]"></ul>
+        <div class="flex gap-1.5">
+          <input id="combo-nombre" type="text" maxlength="40" placeholder="Nombre (ej. Desayuno avena + whey)"
+            onkeydown="if (event.key === 'Enter') guardarComboDelDia()"
+            class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs" />
+          <button onclick="guardarComboDelDia()" class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl text-xs whitespace-nowrap">💾 Guardar el día</button>
+        </div>
+        <p id="aviso-combo" class="text-[11px] text-slate-400 empty:hidden"></p>
+      </div>
+    </details>
+
+    <!-- NUEVO: crear tus propios alimentos. Copia los datos "por 100 g" de la etiqueta. -->
+    <details id="panel-alimentos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1.5">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🥫</span><span class="caja-texto">Mis alimentos</span><span class="caja-dato">añadir · borrar</span></summary>
+      <div class="space-y-1.5 pt-2">
+        <!-- Vista previa de la foto de la etiqueta: se queda visible mientras revisas los números -->
+        <div id="caja-foto" class="hidden space-y-1">
+          <img id="vista-previa" alt="Foto de la tabla nutricional" class="w-full max-h-72 object-contain rounded-xl bg-black" />
+          <div class="flex justify-between items-center">
+            <span class="text-[11px] text-slate-400">Compara con la columna «por 100 g».</span>
+            <button onclick="quitarFoto()" class="mini text-[11px] text-slate-400 hover:text-rose-400 underline">Quitar foto</button>
+          </div>
+        </div>
+        <input id="nuevo-nombre" type="text" placeholder="Nombre (ej. Yogur griego)" maxlength="40"
+          class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
+        <p class="text-[11px] text-slate-400">Valores por 100 g:</p>
+        <div class="grid grid-cols-4 gap-2">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
+            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
+            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
+            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
+            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
+          </div>
+        </div>
+        <p id="aviso-alimento" class="text-[11px] text-rose-400 empty:hidden"></p>
+        <button onclick="addCustomFood()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">
+          Guardar alimento
+        </button>
+        <ul id="lista-mis-alimentos" class="space-y-1.5 text-xs text-slate-300 pt-1"></ul>
+      </div>
     </details>
     </div>
 
@@ -421,98 +527,6 @@
     </div>
     <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
 
-    <!-- NUEVO: CAJITAS de abajo (objetivos, semana, combos y mis alimentos) -->
-    <div id="cajitas-nutri-abajo" class="cajitas grid grid-cols-2 gap-1.5">
-    <details class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
-      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">🎯 Mis objetivos</summary>
-      <div class="space-y-1.5 pt-2">
-        <div class="grid grid-cols-4 gap-2">
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
-            <input id="obj-kcal" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
-            <input id="obj-p" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
-            <input id="obj-c" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
-            <input id="obj-f" type="number" min="1" step="any" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-        </div>
-        <p id="aviso-objetivos" class="text-[11px] text-slate-400 empty:hidden"></p>
-        <div class="flex gap-2">
-          <button onclick="restablecerObjetivos()" class="flex-1 bg-slate-800 border border-slate-700 hover:bg-slate-700 py-1.5 rounded-xl text-sm">Restablecer</button>
-          <button onclick="guardarObjetivos()" class="flex-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">Guardar objetivos</button>
-        </div>
-      </div>
-    </details>
-    <!-- NUEVO: MI SEMANA: medias de 7 días, constancia de proteína, kcal y agua -->
-    <details id="resumen-semana" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
-      <summary id="resumen-semana-titulo" class="cursor-pointer text-xs text-sky-300 font-semibold">📊 Mi semana</summary>
-      <div id="resumen-semana-nutri" class="space-y-0.5 pt-1 text-[11px] leading-snug"></div>
-    </details>
-
-    <!-- NUEVO: COMIDAS RÁPIDAS / COMBOS. Guarda las comidas de un día y repítelas de un toque. -->
-    <details id="combos-rapidos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
-      <summary id="combos-titulo" class="cursor-pointer text-xs text-sky-300 font-semibold">⚡ Combos</summary>
-      <div class="space-y-1.5 pt-2">
-        <ul id="lista-combos" class="space-y-1 text-[11px]"></ul>
-        <div class="flex gap-1.5">
-          <input id="combo-nombre" type="text" maxlength="40" placeholder="Nombre (ej. Desayuno avena + whey)"
-            onkeydown="if (event.key === 'Enter') guardarComboDelDia()"
-            class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs" />
-          <button onclick="guardarComboDelDia()" class="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl text-xs whitespace-nowrap">💾 Guardar el día</button>
-        </div>
-        <p id="aviso-combo" class="text-[11px] text-slate-400 empty:hidden"></p>
-      </div>
-    </details>
-
-    <!-- NUEVO: crear tus propios alimentos. Copia los datos "por 100 g" de la etiqueta. -->
-    <details id="panel-alimentos" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1.5">
-      <summary class="cursor-pointer text-xs text-sky-300 font-semibold">🥫 Mis alimentos</summary>
-      <div class="space-y-1.5 pt-2">
-        <!-- Vista previa de la foto de la etiqueta: se queda visible mientras revisas los números -->
-        <div id="caja-foto" class="hidden space-y-1">
-          <img id="vista-previa" alt="Foto de la tabla nutricional" class="w-full max-h-72 object-contain rounded-xl bg-black" />
-          <div class="flex justify-between items-center">
-            <span class="text-[11px] text-slate-400">Compara con la columna «por 100 g».</span>
-            <button onclick="quitarFoto()" class="mini text-[11px] text-slate-400 hover:text-rose-400 underline">Quitar foto</button>
-          </div>
-        </div>
-        <input id="nuevo-nombre" type="text" placeholder="Nombre (ej. Yogur griego)" maxlength="40"
-          class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
-        <p class="text-[11px] text-slate-400">Valores por 100 g:</p>
-        <div class="grid grid-cols-4 gap-2">
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Kcal</label>
-            <input id="nuevo-kcal" type="number" min="0" step="any" placeholder="97" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Prot. (g)</label>
-            <input id="nuevo-p" type="number" min="0" step="any" placeholder="9" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Carbos (g)</label>
-            <input id="nuevo-c" type="number" min="0" step="any" placeholder="4" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-          <div>
-            <label class="block text-[11px] text-slate-400 mb-0.5">Grasas (g)</label>
-            <input id="nuevo-f" type="number" min="0" step="any" placeholder="5" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm" />
-          </div>
-        </div>
-        <p id="aviso-alimento" class="text-[11px] text-rose-400 empty:hidden"></p>
-        <button onclick="addCustomFood()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">
-          Guardar alimento
-        </button>
-        <ul id="lista-mis-alimentos" class="space-y-1.5 text-xs text-slate-300 pt-1"></ul>
-      </div>
-    </details>
-    </div>
   </section>
 
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
@@ -588,10 +602,10 @@
 
     <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
     <!-- NUEVO: desplegables en 2 columnas mientras están cerrados; el que abras pasa a ancho completo -->
-    <div id="desplegables-entreno" class="cajitas grid grid-cols-2 gap-1.5">
+    <div id="desplegables-entreno" class="cajitas grid grid-cols-3 gap-1.5">
     <!-- NUEVO: bloques secundarios recogidos en desplegables (cerrados por defecto) -->
     <details id="desplegable-sensacion" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="sensacion-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">🙂 ¿Cómo te sientes hoy?</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" id="sensacion-icono" aria-hidden="true">🙂</span><span class="caja-texto">Hoy</span><span class="caja-dato" id="sensacion-resumen">¿cómo estás?</span></summary>
     <!-- NUEVO: SENSACIÓN DEL DÍA. Ajusta la sugerencia de hoy sin culpa (se guarda por fecha). -->
     <div id="sensacion-dia" class="space-y-1 pt-1 pb-0.5">
       <div class="grid grid-cols-2 gap-2">
@@ -603,11 +617,11 @@
     </div>
     </details>
     <details id="desplegable-info" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="cursor-pointer text-xs text-slate-200 font-semibold">ℹ️ Rango y progresión</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">ℹ️</span><span class="caja-texto">Rango</span><span class="caja-dato">cómo progresar</span></summary>
     <p id="info-modalidad" class="text-[11px] text-slate-400 pt-1 pb-0.5"></p>
     </details>
     <details id="desplegable-ajustes" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="ajustes-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">👤 Tu nombre y voz de ánimo</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">👤</span><span class="caja-texto">Perfil</span><span class="caja-dato" id="ajustes-resumen">nombre · voz</span></summary>
     <!-- NUEVO: tu nombre (para los mensajes de ánimo). Se guarda en este móvil. -->
     <div class="flex items-center gap-1.5 pt-1 pb-0.5">
       <label for="nombre-usuario" class="text-xs text-slate-500 shrink-0">👤</label>
@@ -620,17 +634,17 @@
     </div>
     </details>
     <details id="desplegable-radar" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="radar-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">📡 Radar de constancia</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">📡</span><span class="caja-texto">Radar</span><span class="caja-dato" id="radar-resumen">7 días</span></summary>
       <div id="radar-constancia" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5"></div>
     </details>
     <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
     <details id="desplegable-combustible" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="combustible-resumen" class="cursor-pointer text-xs text-slate-200 font-semibold truncate">⛽ Combustible y rendimiento</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">⛽</span><span class="caja-texto">Combustible</span><span class="caja-dato" id="combustible-resumen">agua · kcal</span></summary>
       <div id="combustible-rendimiento" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5" aria-live="polite"></div>
     </details>
     <!-- NUEVO: RÉCORDS PERSONALES: tus mejores marcas por ejercicio (se celebran al batirlas) -->
     <details id="records-personales" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary id="records-titulo" class="cursor-pointer text-xs text-amber-300 font-semibold">🏆 Mis récords</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🏆</span><span class="caja-texto">Récords</span><span class="caja-dato" id="records-titulo">tus marcas</span></summary>
       <ul id="lista-records" class="space-y-0.5 pt-1 text-[11px]"></ul>
     </details>
 
@@ -638,7 +652,7 @@
     <!-- NUEVO: IA DE POSTURA Y REPETICIONES (opcional). No carga cámara ni IA hasta que lo abres.
          Todo se analiza en tu móvil: el vídeo no sale de él. -->
     <details id="panel-ia" ontoggle="if (!this.open) pararIA()" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
-      <summary class="cursor-pointer text-xs text-emerald-300 font-semibold">🤖 IA de postura (beta)</summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🤖</span><span class="caja-texto">IA postura</span><span class="caja-dato">cuenta reps · beta</span></summary>
       <div class="space-y-1.5 pt-2">
         <div class="flex gap-1.5">
           <select id="ia-ejercicio" onchange="reiniciarIA()" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm">
@@ -3226,7 +3240,7 @@
         if (!resumen) return;
         const nombre = nombreUsuario();
         const voz = vozActiva() && hayVoz() ? '🔊 Voz' : '🔇 Voz';
-        resumen.textContent = `👤 ${nombre || 'Tu nombre'} · ${voz}`;   // textContent: seguro
+        resumen.textContent = `${nombre || 'sin nombre'} · ${voz.split(' ')[0]}`;   // textContent: seguro
       } catch (e) { /* nada */ }
     }
 
@@ -3384,7 +3398,7 @@
         try {
           const resumen = document.getElementById('combustible-resumen');
           const kcalDia = Math.round(state.foods.filter(f => f.date === fecha).reduce((s, f) => s + f.kcal, 0));
-          if (resumen) resumen.textContent = `⛽ ${ml} ml · ${kcalDia} kcal${esHoy ? '' : ' (' + cuando + ')'}`;
+          if (resumen) resumen.textContent = `${ml} ml · ${kcalDia} kcal`;
         } catch (e) { /* nada */ }
         const pctAgua = Math.round(ml / meta * 100);
         if (pctAgua >= 100) caja.appendChild(linea(`💧 ${ml}/${meta} ml · ✓ Bien hidratado.`, 'text-emerald-400'));
@@ -3471,7 +3485,12 @@
         // NUEVO: resumen en el desplegable (ej. "⚡ Hoy: A tope")
         const resumen = document.getElementById('sensacion-resumen');
         const boton = document.querySelector(`#sensacion-dia [data-sensacion="${actual}"]`);
-        if (resumen && boton) resumen.textContent = `${fechaSeleccionada() === hoy() ? 'Hoy' : fechaBonita(fechaSeleccionada())}: ${boton.textContent.trim()}`;
+        if (resumen && boton) {
+          const partes = boton.textContent.trim().split(' ');
+          const icono = document.getElementById('sensacion-icono');
+          if (icono) icono.textContent = partes[0];
+          resumen.textContent = partes.slice(1).join(' ');
+        }
       } catch (e) { /* nada */ }
     }
 
@@ -3747,7 +3766,7 @@
       if (!ul) return;
       try {
         const lista = leerCombos();
-        document.getElementById('combos-titulo').textContent = `⚡ Combos${lista.length ? ` (${lista.length})` : ''}`;
+        document.getElementById('combos-titulo').textContent = lista.length ? `${lista.length} guardado${lista.length === 1 ? '' : 's'}` : 'comidas rápidas';
         ul.innerHTML = lista.length ? lista.map(c => {
           const kcal = c.items.reduce((a, x) => a + (x.kcal || 0), 0);
           const p = c.items.reduce((a, x) => a + (x.p || 0), 0);
@@ -3809,7 +3828,7 @@
           const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p); return p;
         };
         const resumen = document.getElementById('radar-resumen');
-        if (resumen) resumen.textContent = `📡 ${entrenados.length}/7 días · ${series} series` + (racha > 1 ? ` · racha ${racha}` : '');
+        if (resumen) resumen.textContent = `${entrenados.length}/7 días · ${series} series`;
         linea('Últimos 7 días:', 'text-slate-500');
 
         // Fila de 7 puntitos con la inicial del día
@@ -3951,7 +3970,7 @@
           fila.append(nombre, dato);
           lista.appendChild(fila);
         });
-        titulo.textContent = `🏆 Mis récords${n ? ` (${n})` : ''}`;
+        titulo.textContent = n ? `${n} ejercicio${n === 1 ? '' : 's'}` : 'tus marcas';
         if (!n) {
           const vacio = document.createElement('li');
           vacio.className = 'text-slate-500';
@@ -3988,7 +4007,7 @@
           const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p);
         };
         if (!conDatos.length) {
-          titulo.textContent = '📊 Mi semana';
+          titulo.textContent = '7 días';
           linea('Apunta tus comidas unos días y aquí verás tus medias y tu constancia.', 'text-slate-500');
           return;
         }
@@ -3996,7 +4015,7 @@
         const diasProte = conDatos.filter(x => x.p >= TARGETS.p * 0.9).length;
         const diasKcal = conDatos.filter(x => Math.abs(x.kcal - TARGETS.kcal) <= TARGETS.kcal * 0.1).length;
         const diasAgua = datos.filter(x => x.agua >= meta).length;
-        titulo.textContent = `📊 Semana · prot. ${diasProte}/7`;
+        titulo.textContent = `proteína ${diasProte}/7`;
         linea(`Media (${conDatos.length} días apuntados): ${Math.round(media('kcal'))} kcal · ${Math.round(media('p'))} g proteína`);
         linea(`🎯 Proteína ≥90 %: ${diasProte}/7 · Kcal en objetivo (±10 %): ${diasKcal}/7 · 💧 Agua cumplida: ${diasAgua}/7`);
         // Consejo: el punto más flojo de la semana
