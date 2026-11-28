@@ -208,7 +208,18 @@
     html body .cajitas > details:not([open]):active { transform: scale(0.97); }
     html body .cajitas > details:hover { background: rgba(255, 255, 255, 0.10); }
     /* La última, si queda sola en su fila, ocupa todo el ancho (en horizontal) */
-    html body .cajitas > details:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
+    html body .cajitas:not(.cajitas-4) > details:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
+    /* Entreno: 4 columnas para que las 7 cajitas (con IA postura) entren en 2 filas */
+    html body .cajitas.cajitas-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; }
+    html body .cajitas.cajitas-4 > details:not([open]) > summary.caja-boton { min-height: 60px; padding: 0.4rem 0.2rem 0.35rem; }
+    html body .cajitas.cajitas-4 .caja-texto { font-size: 11px; }
+    html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { font-size: 9.5px; }
+    /* Tarjetas de ejercicio compactas: consejo en 2 líneas como mucho (completo al tocar el historial) */
+    html body .tarjeta-ejercicio .consejo-ejercicio {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    html body .tarjeta-ejercicio:has(details[open]) .consejo-ejercicio { -webkit-line-clamp: unset; display: block; }
+    html body .tarjeta-ejercicio details.historial-ejercicio { background: transparent; box-shadow: none; padding: 0; }
     html body .cajitas > details > summary.caja-boton {
       list-style: none; box-sizing: border-box; min-height: 64px; padding: 0.45rem 0.3rem 0.4rem;
       display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
@@ -219,7 +230,7 @@
     html body .cajitas .caja-texto { font-size: 11.5px; font-weight: 600; color: #e2e8f0; line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     html body .cajitas .caja-dato { font-size: 10px; color: rgba(203, 213, 225, 0.70); line-height: 1.2; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     /* Cajita sola en su fila: icono a la izquierda y textos en línea */
-    html body .cajitas > details:last-child:nth-child(3n+1):not([open]) > summary.caja-boton,
+    html body .cajitas:not(.cajitas-4) > details:last-child:nth-child(3n+1):not([open]) > summary.caja-boton,
     html body .cajitas > details[open] > summary.caja-boton {
       flex-direction: row; justify-content: flex-start; gap: 0.45rem; min-height: 40px; padding: 0.4rem 2rem 0.4rem 0.7rem; text-align: left;
     }
@@ -602,7 +613,7 @@
 
     <!-- NUEVO: RADAR DE CONSTANCIA: 7 días, racha, recuperación y equilibrio de modalidades -->
     <!-- NUEVO: desplegables en 2 columnas mientras están cerrados; el que abras pasa a ancho completo -->
-    <div id="desplegables-entreno" class="cajitas grid grid-cols-3 gap-1.5">
+    <div id="desplegables-entreno" class="cajitas cajitas-4 grid grid-cols-4 gap-1.5">
     <!-- NUEVO: bloques secundarios recogidos en desplegables (cerrados por defecto) -->
     <details id="desplegable-sensacion" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
       <summary class="caja-boton cursor-pointer"><span class="caja-icono" id="sensacion-icono" aria-hidden="true">🙂</span><span class="caja-texto">Hoy</span><span class="caja-dato" id="sensacion-resumen">¿cómo estás?</span></summary>
@@ -617,7 +628,7 @@
     </div>
     </details>
     <details id="desplegable-info" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">ℹ️</span><span class="caja-texto">Rango</span><span class="caja-dato">cómo progresar</span></summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">ℹ️</span><span class="caja-texto">Rango</span><span class="caja-dato">progresión</span></summary>
     <p id="info-modalidad" class="text-[11px] text-slate-400 pt-1 pb-0.5"></p>
     </details>
     <details id="desplegable-ajustes" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
@@ -652,7 +663,7 @@
     <!-- NUEVO: IA DE POSTURA Y REPETICIONES (opcional). No carga cámara ni IA hasta que lo abres.
          Todo se analiza en tu móvil: el vídeo no sale de él. -->
     <details id="panel-ia" ontoggle="if (!this.open) pararIA()" class="bg-slate-800/40 border border-slate-800 rounded-xl px-3 py-1">
-      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🤖</span><span class="caja-texto">IA postura</span><span class="caja-dato">cuenta reps · beta</span></summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🤖</span><span class="caja-texto">IA postura</span><span class="caja-dato">cuenta reps</span></summary>
       <div class="space-y-1.5 pt-2">
         <div class="flex gap-1.5">
           <select id="ia-ejercicio" onchange="reiniciarIA()" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm">
@@ -688,7 +699,7 @@
       </div>
     </details>
     </div>
-    <div id="lista-entrenos" class="space-y-2 pt-1"></div>
+    <div id="lista-entrenos" class="space-y-1.5 pt-0.5"></div>
   </section>
 
   <!-- NUEVO: COPIA DE SEGURIDAD. Tus datos viven en este navegador; con esto
@@ -2707,23 +2718,24 @@
             </li>`)
             .join('');
 
-          return `<div class="bg-slate-800/80 border border-slate-700 rounded-xl p-2 text-xs space-y-0.5">
-            <div class="flex justify-between items-center font-semibold text-sm">
-              <span>${ex.name}</span>
-              <span class="text-emerald-400 text-xs">${escaparHTML(prog.badge)}</span>
+          // COMPACTA: nombre + recomendación en una fila; modalidad y consejo en 2 líneas como mucho;
+          // historial (plegado) y +1 serie en la misma fila.
+          return `<div class="tarjeta-ejercicio bg-slate-800/80 border border-slate-700 rounded-xl px-2 py-1.5 text-[11px] leading-snug">
+            <div class="flex justify-between items-baseline gap-2">
+              <span class="min-w-0 truncate font-semibold text-[13px]">${escaparHTML(ex.name)}</span>
+              <span class="shrink-0 text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</span>
             </div>
-            <div class="flex justify-between items-center gap-2">
-              <p class="text-slate-400 min-w-0">${modalidad}</p>
+            <p class="consejo-ejercicio text-sky-300" title="${escaparHTML(prog.tip)}"><span class="text-slate-500">${modalidad} · </span>${escaparHTML(prog.tip)}</p>
+            <div class="flex justify-between items-start gap-2 pt-0.5">
+              <details class="historial-ejercicio min-w-0 flex-1">
+                <summary class="cursor-pointer text-slate-400">Historial (${historial.length})</summary>
+                <ul class="space-y-0.5 pt-1 text-slate-300">${filas}</ul>
+              </details>
               ${ultimo.date === fechaSeleccionada()
                 ? `<button onclick="sumarSerieARegistro('${escaparHTML(ultimo.id)}')" title="Añadir una serie igual a la última de hoy"
-                    class="mini shrink-0 h-8 px-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-[11px] whitespace-nowrap">+1 serie</button>`
+                    class="mini shrink-0 h-7 px-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-[11px] whitespace-nowrap">+1 serie</button>`
                 : ''}
             </div>
-            <p class="text-sky-300">${escaparHTML(prog.tip)}</p>
-            <details class="pt-1">
-              <summary class="cursor-pointer text-slate-400">Historial (${historial.length})</summary>
-              <ul class="space-y-1 pt-1.5 text-slate-300">${filas}</ul>
-            </details>
           </div>`;
         })
         .join('');
@@ -3398,7 +3410,7 @@
         try {
           const resumen = document.getElementById('combustible-resumen');
           const kcalDia = Math.round(state.foods.filter(f => f.date === fecha).reduce((s, f) => s + f.kcal, 0));
-          if (resumen) resumen.textContent = `${ml} ml · ${kcalDia} kcal`;
+          if (resumen) resumen.textContent = `${kcalDia} kcal`;
         } catch (e) { /* nada */ }
         const pctAgua = Math.round(ml / meta * 100);
         if (pctAgua >= 100) caja.appendChild(linea(`💧 ${ml}/${meta} ml · ✓ Bien hidratado.`, 'text-emerald-400'));
@@ -3828,7 +3840,7 @@
           const p = document.createElement('p'); p.className = clase; p.textContent = txt; caja.appendChild(p); return p;
         };
         const resumen = document.getElementById('radar-resumen');
-        if (resumen) resumen.textContent = `${entrenados.length}/7 días · ${series} series`;
+        if (resumen) resumen.textContent = `${entrenados.length}/7 días`;
         linea('Últimos 7 días:', 'text-slate-500');
 
         // Fila de 7 puntitos con la inicial del día
@@ -3970,7 +3982,7 @@
           fila.append(nombre, dato);
           lista.appendChild(fila);
         });
-        titulo.textContent = n ? `${n} ejercicio${n === 1 ? '' : 's'}` : 'tus marcas';
+        titulo.textContent = n ? `${n} marca${n === 1 ? '' : 's'}` : 'tus marcas';
         if (!n) {
           const vacio = document.createElement('li');
           vacio.className = 'text-slate-500';
