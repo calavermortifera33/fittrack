@@ -271,6 +271,36 @@
       background: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.45) 55%);
       border-color: rgba(255, 255, 255, 0.16);
     }
+    /* NUEVO: WIDGET DE REGISTRO en Entreno (mismo cristal oscuro que el widget de cajitas) */
+    html body .widget-registro {
+      padding: 0.55rem;
+      background: rgba(0, 0, 0, 0.26);
+      -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 1.15rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+    html body .widget-registro > * + * { margin-top: 0.4rem; }
+    html body .widget-registro #ejercicio-select {
+      background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 0.8rem; font-weight: 600;
+    }
+    html body .widget-registro #ultimo-registro > div { background: rgba(0, 0, 0, 0.40); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.8rem; }
+    /* Cada campo es una cajita: etiqueta pequeña arriba y el número grande, centrado */
+    html body .widget-registro .grid.grid-cols-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.375rem; }
+    html body .widget-registro h2 { font-size: 12px; margin: 0; }
+    html body .widget-registro button[onclick="addWorkout()"] { width: 100%; }
+    html body .widget-registro .caja-campo {
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.50), rgba(0, 0, 0, 0.40));
+      border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 0.85rem;
+      padding: 0.3rem 0.35rem 0.25rem; text-align: center; min-width: 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+    html body .widget-registro .caja-campo:focus-within { border-color: rgba(255, 255, 255, 0.35); }
+    html body .widget-registro .caja-campo label { margin: 0; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    html body .widget-registro .caja-campo input {
+      background: transparent; border: 0; box-shadow: none; padding: 0.1rem 0; font-size: 19px; font-weight: 700; line-height: 1.2;
+    }
+    html body .widget-registro .caja-campo input:focus { box-shadow: none; }
+    html body .widget-registro button[onclick="addWorkout()"] { border-radius: 0.85rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
     /* Tarjeta en UNA línea: nombre (con "…" solo si de verdad no cabe) · recomendación · +1 */
     html body .tarjeta-ejercicio summary.fila-ejercicio {
       list-style: none; display: flex; align-items: center; gap: 0.4rem; min-height: 34px; padding: 0.2rem 0;
@@ -632,7 +662,9 @@
 
   <!-- BLOQUES 2, 3 Y 4: ENTRENAMIENTO -->
   <section id="seccion-entreno" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-2.5 space-y-1.5">
-    <h2 class="text-sm font-semibold text-emerald-300">Entrenamiento y Progresión</h2>
+    <!-- NUEVO: WIDGET DE REGISTRO (cristal oscuro): ejercicio, estado, Peso/Series/Reps y Guardar -->
+    <div id="widget-registro" class="widget-registro space-y-1.5">
+    <h2 class="text-[12px] font-semibold text-emerald-300 tracking-wide">🏋️ Entrenamiento y Progresión</h2>
     <!-- NUEVO: mensaje de ánimo. Flota justo bajo las pestañas para que lo veas aunque hayas bajado
          (no ocupa sitio ni bloquea toques: se puede pulsar a través de él). -->
     <p id="animo" class="hidden fixed z-50 left-1/2 -translate-x-1/2 w-[min(92vw,26rem)] pointer-events-none text-center text-sm font-semibold text-slate-100 rounded-xl px-3 py-2 transition-opacity duration-300" aria-live="polite"></p>
@@ -662,26 +694,27 @@
     <div id="ultimo-registro" class="text-[11px]"></div>
 
     <!-- MOVIDO ARRIBA: Peso / Series / Reps y Guardar, visibles sin bajar -->
-    <div class="grid grid-cols-3 gap-2">
-      <div id="campo-carga">
-        <label id="label-carga" class="block text-[11px] text-slate-400 mb-0.5">Peso (kg)</label>
+    <div class="grid grid-cols-3 gap-1.5">
+      <div id="campo-carga" class="caja-campo">
+        <label id="label-carga" for="peso-input" class="block text-[10.5px] text-slate-400">Peso (kg)</label>
         <input id="peso-input" type="number" step="0.5" placeholder="20" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-center appearance-none" />
       </div>
-      <div>
-        <label class="block text-[11px] text-slate-400 mb-0.5">Series</label>
+      <div class="caja-campo">
+        <label for="series-input" class="block text-[10.5px] text-slate-400">Series</label>
         <input id="series-input" type="number" placeholder="3" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-center appearance-none" />
       </div>
-      <div>
-        <label class="block text-[11px] text-slate-400 mb-0.5">Reps</label>
+      <div class="caja-campo">
+        <label for="reps-input" class="block text-[10.5px] text-slate-400">Reps</label>
         <input id="reps-input" type="number" placeholder="10" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm text-center appearance-none" />
       </div>
     </div>
 
     <button onclick="addWorkout()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold py-1.5 rounded-xl text-sm">
-      Guardar y calcular progresión
+      ✓ Guardar y calcular progresión
     </button>
     <!-- NUEVO: mensaje tras guardar (o si falta algún dato) -->
     <p id="aviso-entreno" class="text-[11px] text-slate-400 empty:hidden"></p>
+    </div>
 
     <!-- NUEVO: CRONÓMETRO DE DESCANSO. Arranca solo al guardar una serie. -->
     <div id="descanso" class="hidden bg-slate-800/60 border border-sky-900/60 rounded-xl px-2 py-1.5 space-y-1">
