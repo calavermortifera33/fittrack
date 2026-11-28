@@ -217,6 +217,19 @@
     html body .cajitas > details:hover { background: rgba(0, 0, 0, 0.58); }
     /* La última, si queda sola en su fila, ocupa todo el ancho (en horizontal) */
     html body .cajitas:not(.cajitas-4) > details:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
+    /* NUEVO: BLOQUES OSCUROS firmes en Nutrición (macros, agua, añadir comida, comidas del día) */
+    html body .bloque-oscuro, html body #bloque-agua.bloque-oscuro {
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.48), rgba(0, 0, 0, 0.38));
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 0.9rem;
+      padding: 0.6rem 0.7rem;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 8px rgba(0, 0, 0, 0.18);
+    }
+    html body #bloque-macros #margen-dia { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+    html body #bloque-comidas li.bg-slate-800\/70 { background: rgba(255, 255, 255, 0.06); }
+    html body #seccion-nutri > .bloque-oscuro + .bloque-oscuro { margin-top: 0.6rem; }
     /* Nutrición: un poco más de aire arriba (título, cajitas y macros no van pegados) */
     html body #seccion-nutri { padding-top: 0.75rem; }
     html body #titulo-nutricion { letter-spacing: .01em; }
@@ -531,13 +544,16 @@
     </details>
     </div>
 
-    <!-- NUEVO: barras de progreso para kcal, proteínas, carbos y grasas -->
-    <div id="barras-macros" class="grid grid-cols-2 gap-x-3 gap-y-1"></div>
-    <!-- NUEVO: lo que te queda para llegar a tus objetivos del día -->
-    <p id="margen-dia" class="text-[11px] leading-tight"></p>
+    <!-- NUEVO: BLOQUE DE MACROS: barras + «Quedan…» juntas en una caja oscura firme -->
+    <div id="bloque-macros" class="bloque-oscuro space-y-1.5">
+      <!-- NUEVO: barras de progreso para kcal, proteínas, carbos y grasas -->
+      <div id="barras-macros" class="grid grid-cols-2 gap-x-3 gap-y-1.5"></div>
+      <!-- NUEVO: lo que te queda para llegar a tus objetivos del día -->
+      <p id="margen-dia" class="text-[11px] leading-tight pt-1.5"></p>
+    </div>
 
     <!-- NUEVO: MEDIDOR DE AGUA del día elegido. Suma de un toque con los botones rápidos. -->
-    <div id="bloque-agua" class="bg-sky-950/40 border border-sky-900/60 rounded-xl p-2 space-y-1.5">
+    <div id="bloque-agua" class="bloque-oscuro space-y-1.5">
       <div class="flex items-center gap-2">
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-1 whitespace-nowrap">
@@ -559,23 +575,29 @@
 
     <!-- NUEVO: filtro rápido. Escribe parte del nombre y el desplegable de abajo
          se reduce al instante a los alimentos que coinciden (básicos y tuyos). Sin internet. -->
+    <!-- NUEVO: BLOQUE AÑADIR COMIDA: filtro, alimento a lo ancho (se lee entero) y gramos + botón -->
+    <div id="bloque-anadir" class="bloque-oscuro space-y-2">
     <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos"
       oninput="filtrarAlimentos()" onkeydown="if (event.key === 'Enter') document.getElementById('gramos-input').focus()"
       class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
-    <p id="info-filtro" class="text-[11px] text-slate-500 -mt-0.5 empty:hidden"></p>
+    <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1 empty:hidden"></p>
 
-    <div class="flex gap-2">
       <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
            así aparecen tanto los alimentos de base como los tuyos. -->
-      <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm"></select>
-      <input id="gramos-input" type="number" inputmode="decimal" placeholder="g" min="1" class="min-w-0 w-20 sm:w-24 shrink-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm text-center" />
-      <button onclick="addFood()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-1.5 rounded-xl text-sm">
-        +
+      <select id="alimento-select" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm"></select>
+    <div class="flex gap-2">
+      <input id="gramos-input" type="number" inputmode="decimal" placeholder="Gramos" min="1" class="min-w-0 flex-1 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm text-center" />
+      <button onclick="addFood()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-4 py-1.5 rounded-xl text-sm">
+        + Añadir
       </button>
+    </div>
     </div>
 
     <!-- NUEVO: copiar de un toque las comidas del día anterior (solo sale si ese día tiene comidas) -->
-    <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
+    <!-- NUEVO: BLOQUE COMIDAS DEL DÍA -->
+    <div id="bloque-comidas" class="bloque-oscuro">
+      <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
+    </div>
 
   </section>
 
@@ -2709,9 +2731,9 @@
 
       document.getElementById('lista-comidas').innerHTML = comidasDelDia.length
         ? comidasDelDia
-            .map(item => `<li class="flex justify-between items-center bg-slate-800/70 px-3 py-1.5 rounded-xl">
-              <span>${escaparHTML(item.name)} (${item.grams}g)</span>
-              <span class="flex items-center gap-3">
+            .map(item => `<li class="flex justify-between items-center gap-2 bg-slate-800/70 px-3 py-1.5 rounded-xl">
+              <span class="min-w-0 flex-1 leading-snug">${escaparHTML(item.name)} <span class="text-slate-500 whitespace-nowrap">(${item.grams}g)</span></span>
+              <span class="shrink-0 flex items-center gap-3">
                 <span class="font-semibold text-sky-300">${item.kcal} kcal</span>
                 <button onclick="repetirComida('${item.id}')" title="Añadir otra vez (mismos gramos)"
                   class="mini shrink-0 text-slate-500 hover:text-emerald-400 text-base leading-none p-2 -m-2">＋</button>
