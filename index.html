@@ -146,6 +146,11 @@
     html body .border-emerald-500 { border-color: rgba(255, 255, 255, 0.5); }
     html body .border-sky-900 { border-color: rgba(255, 255, 255, 0.14); }
     /* Aviso de ánimo flotante: cristal un poco más opaco para leerse bien sobre cualquier cosa */
+    /* NUEVO: entrada suave al cambiar de pestaña deslizando */
+    @keyframes entraIzq { from { transform: translateX(28px); opacity: .4; } to { transform: none; opacity: 1; } }
+    @keyframes entraDer { from { transform: translateX(-28px); opacity: .4; } to { transform: none; opacity: 1; } }
+    html body .entra-izq { animation: entraIzq .25s ease-out; }
+    html body .entra-der { animation: entraDer .25s ease-out; }
     /* NUEVO: pequeño "pop" al batir un récord */
     @keyframes recordPop { 0% { transform: scale(.9); opacity: .4; } 50% { transform: scale(1.06); } 100% { transform: scale(1); opacity: 1; } }
     html body .record-pop { display: inline-block; animation: recordPop .6s ease-out; text-shadow: 0 0 12px rgba(252, 211, 77, .45); }
@@ -329,7 +334,7 @@
 
 
     <!-- NUEVO: PANEL DE CAJITAS (3 columnas, icono + etiqueta). La que abras se despliega a todo el ancho. -->
-    <div id="cajitas-nutri-arriba" class="cajitas grid grid-cols-3 gap-1.5">
+    <div id="cajitas-nutri-arriba" class="cajitas cajitas-4 grid grid-cols-4 gap-1.5">
     <!-- NUEVO: desplegable cerrado por defecto. Se abre solo si una cámara o un aviso lo necesita. -->
     <details id="desplegable-escaner" class="scroll-mt-14 bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
       <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">🔍</span><span class="caja-texto">Escanear</span><span class="caja-dato">código · foto</span></summary>
@@ -501,6 +506,26 @@
         <ul id="lista-mis-alimentos" class="space-y-1.5 text-xs text-slate-300 pt-1"></ul>
       </div>
     </details>
+    <!-- NUEVO: cajita META DE AGUA (el 🎯 del medidor también la abre) -->
+    <details id="desplegable-meta-agua" ontoggle="if (this.open) { try { document.getElementById('agua-meta-input').value = metaAgua(); } catch (e) {} }">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">💧</span><span class="caja-texto">Meta agua</span><span class="caja-dato" id="meta-agua-resumen">2000 ml</span></summary>
+        <div id="agua-meta-caja" class="pt-1.5">
+        <div class="flex gap-2">
+          <input id="agua-meta-input" type="number" min="250" max="10000" step="50" placeholder="Meta en ml (ej. 2000)"
+            onkeydown="if (event.key === 'Enter') guardarMetaAgua()"
+            class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm" />
+          <button onclick="guardarMetaAgua()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs">Guardar</button>
+        </div>
+      </div>
+    </details>
+    <!-- NUEVO: cajita REPETIR AYER (copia las comidas del día anterior) -->
+    <details id="desplegable-repetir">
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">↻</span><span class="caja-texto">Repetir ayer</span><span class="caja-dato" id="repetir-resumen">comidas</span></summary>
+    <div id="fila-repetir" class="hidden pt-1.5">
+      <button id="btn-repetir-ayer" onclick="repetirAyer()" class="mini w-full h-9 px-3 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-xs whitespace-nowrap">↻ Repetir ayer</button>
+    </div>
+      <p id="repetir-vacio" class="text-[11px] text-slate-500 pt-1.5">Ayer no apuntaste comidas.</p>
+    </details>
     </div>
 
     <!-- NUEVO: barras de progreso para kcal, proteínas, carbos y grasas -->
@@ -525,14 +550,6 @@
         <button onclick="sumarAgua(-250)" title="Quitar 250 ml" class="mini shrink-0 h-9 w-9 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">−</button>
         <button onclick="alternarMetaAgua()" title="Cambiar meta diaria" class="mini shrink-0 h-9 w-9 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-lg text-xs">🎯</button>
       </div>
-      <div id="agua-meta-caja" class="hidden">
-        <div class="flex gap-2">
-          <input id="agua-meta-input" type="number" min="250" max="10000" step="50" placeholder="Meta diaria en ml (ej. 2000)"
-            onkeydown="if (event.key === 'Enter') guardarMetaAgua()"
-            class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm" />
-          <button onclick="guardarMetaAgua()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3 py-1.5 rounded-lg text-xs">Guardar</button>
-        </div>
-      </div>
     </div>
 
     <!-- NUEVO: editar tus objetivos diarios -->
@@ -555,9 +572,6 @@
     </div>
 
     <!-- NUEVO: copiar de un toque las comidas del día anterior (solo sale si ese día tiene comidas) -->
-    <div id="fila-repetir" class="hidden flex justify-end">
-      <button id="btn-repetir-ayer" onclick="repetirAyer()" class="mini h-8 px-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-sky-300 rounded-lg text-xs whitespace-nowrap">↻ Repetir ayer</button>
-    </div>
     <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
 
   </section>
@@ -2712,6 +2726,11 @@
       const deAyer = state.foods.filter(f => f.date === diaAnterior(fecha)).length;
       document.getElementById('fila-repetir').classList.toggle('hidden', !deAyer);
       document.getElementById('btn-repetir-ayer').textContent = `↻ Repetir ayer (${deAyer})`;
+      try {   // NUEVO: datos de las cajitas «Repetir ayer» y «Meta agua»
+        document.getElementById('repetir-vacio').classList.toggle('hidden', !!deAyer);
+        document.getElementById('repetir-resumen').textContent = deAyer ? `${deAyer} comida${deAyer === 1 ? '' : 's'}` : 'ayer vacío';
+        document.getElementById('meta-agua-resumen').textContent = `${metaAgua()} ml`;
+      } catch (e) { /* nunca rompe render */ }
 
       // ---- MIS ALIMENTOS: desplegable y lista con botón de borrar ----
       rellenarSelectorAlimentos();
@@ -4117,6 +4136,19 @@
     }
     function alternarMetaAgua() {
       const caja = document.getElementById('agua-meta-caja');
+      // NUEVO: la meta vive en su cajita «💧 Meta agua»: el 🎯 la abre o la cierra.
+      const cajita = document.getElementById('desplegable-meta-agua');
+      if (cajita) {
+        cajita.open = !cajita.open;
+        caja.classList.remove('hidden');
+        if (cajita.open) {
+          const input = document.getElementById('agua-meta-input');
+          input.value = metaAgua();
+          cajita.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          input.focus();
+        }
+        return;
+      }
       caja.classList.toggle('hidden');
       if (!caja.classList.contains('hidden')) {
         const input = document.getElementById('agua-meta-input');
@@ -4131,8 +4163,54 @@
         return;
       }
       guardar('ft4_waterGoal', valor);
-      document.getElementById('agua-meta-caja').classList.add('hidden');
+      const cajita = document.getElementById('desplegable-meta-agua');
+      if (cajita) cajita.open = false;
+      else document.getElementById('agua-meta-caja').classList.add('hidden');
       pintarAgua();
+      try { document.getElementById('meta-agua-resumen').textContent = `${metaAgua()} ml`; } catch (e) { /* nada */ }
+    }
+
+    // ---------- NUEVO: DESLIZAR A LOS LADOS PARA CAMBIAR DE PESTAÑA ----------
+    // Solo cuenta un gesto claramente horizontal y rápido. No salta si empiezas en un campo,
+    // un desplegable, una cámara/visor o algo que se desplaza de lado, ni con una cámara abierta.
+    const gestoPestana = { x: 0, y: 0, t: 0, valido: false };
+    const ZONAS_SIN_GESTO = 'input, select, textarea, video, canvas, #lector, #zona-camara, #zona-fresco, #ia-visor, #fresco-chips, .overflow-x-auto, #descanso, #dialogo';
+    document.addEventListener('touchstart', ev => {
+      try {
+        gestoPestana.valido = false;
+        if (ev.touches.length !== 1) return;
+        const destino = ev.target;
+        if (destino && destino.closest && destino.closest(ZONAS_SIN_GESTO)) return;
+        const t = ev.touches[0];
+        gestoPestana.x = t.clientX; gestoPestana.y = t.clientY; gestoPestana.t = Date.now();
+        gestoPestana.valido = true;
+      } catch (e) { gestoPestana.valido = false; }
+    }, { passive: true });
+    document.addEventListener('touchend', ev => {
+      try {
+        if (!gestoPestana.valido) return;
+        gestoPestana.valido = false;
+        const t = ev.changedTouches[0];
+        const dx = t.clientX - gestoPestana.x, dy = t.clientY - gestoPestana.y;
+        const rapido = Date.now() - gestoPestana.t < 700;
+        if (!rapido || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 2) return;   // vertical o corto: nada
+        if (lectorCodigo || controlesZXing || fresco.corriendo || ia.corriendo) return;  // cámara abierta: nada
+        if (window.getSelection && String(window.getSelection())) return;              // seleccionando texto
+        const enEntreno = !document.getElementById('seccion-entreno').classList.contains('hidden');
+        if (dx < 0 && !enEntreno) cambiarPestanaDeslizando('entreno', 'izq');
+        else if (dx > 0 && enEntreno) cambiarPestanaDeslizando('nutri', 'der');
+      } catch (e) { /* nada */ }
+    }, { passive: true });
+    function cambiarPestanaDeslizando(cual, desde) {
+      mostrarPestana(cual);
+      try {
+        const sec = document.getElementById(cual === 'entreno' ? 'seccion-entreno' : 'seccion-nutri');
+        sec.classList.remove('entra-izq', 'entra-der');
+        void sec.offsetWidth;   // reinicia la animación
+        sec.classList.add(desde === 'izq' ? 'entra-izq' : 'entra-der');
+        setTimeout(() => sec.classList.remove('entra-izq', 'entra-der'), 300);
+        if (navigator.vibrate) navigator.vibrate(8);
+      } catch (e) { /* nada */ }
     }
 
     // ---------- NUEVO: PESTAÑAS Nutrición / Entreno ----------
