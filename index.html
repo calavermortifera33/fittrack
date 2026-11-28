@@ -209,16 +209,21 @@
     html body .cajitas > details:hover { background: rgba(255, 255, 255, 0.10); }
     /* La última, si queda sola en su fila, ocupa todo el ancho (en horizontal) */
     html body .cajitas:not(.cajitas-4) > details:last-child:nth-child(3n+1) { grid-column: 1 / -1; }
+    /* Nutrición: un poco más de aire arriba (título, cajitas y macros no van pegados) */
+    html body #seccion-nutri { padding-top: 0.75rem; }
+    html body #titulo-nutricion { letter-spacing: .01em; }
+    html body #cajitas-nutri-arriba { margin-top: 0.6rem; margin-bottom: 0.7rem; }
     /* Entreno: 4 columnas para que las 7 cajitas (con IA postura) entren en 2 filas */
     html body .cajitas.cajitas-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; }
     html body .cajitas.cajitas-4 > details:not([open]) > summary.caja-boton { min-height: 60px; padding: 0.4rem 0.2rem 0.35rem; }
     html body .cajitas.cajitas-4 .caja-texto { font-size: 11px; }
     html body .cajitas.cajitas-4 > details:not([open]) .caja-dato { font-size: 9.5px; }
     /* Tarjetas de ejercicio compactas: consejo en 2 líneas como mucho (completo al tocar el historial) */
-    html body .tarjeta-ejercicio .consejo-ejercicio {
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    html body .tarjeta-ejercicio summary.consejo-ejercicio {
+      list-style: none; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-bottom: 1px;
     }
-    html body .tarjeta-ejercicio:has(details[open]) .consejo-ejercicio { -webkit-line-clamp: unset; display: block; }
+    html body .tarjeta-ejercicio summary.consejo-ejercicio::-webkit-details-marker { display: none; }
+    html body .tarjeta-ejercicio details[open] > summary.consejo-ejercicio { display: none; }
     html body .tarjeta-ejercicio details.historial-ejercicio { background: transparent; box-shadow: none; padding: 0; }
     html body .cajitas > details > summary.caja-boton {
       list-style: none; box-sizing: border-box; min-height: 64px; padding: 0.45rem 0.3rem 0.4rem;
@@ -650,7 +655,7 @@
     </details>
     <!-- NUEVO: COMBUSTIBLE Y RENDIMIENTO: agua, kcal y proteína del día + tu patrón personal -->
     <details id="desplegable-combustible" class="bg-slate-800/40 border border-slate-800 rounded-xl px-2.5 py-1">
-      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">⛽</span><span class="caja-texto">Combustible</span><span class="caja-dato" id="combustible-resumen">agua · kcal</span></summary>
+      <summary class="caja-boton cursor-pointer"><span class="caja-icono" aria-hidden="true">⛽</span><span class="caja-texto">Energía</span><span class="caja-dato" id="combustible-resumen">agua · kcal</span></summary>
       <div id="combustible-rendimiento" class="pt-1 pb-0.5 text-[11px] leading-snug space-y-0.5" aria-live="polite"></div>
     </details>
     <!-- NUEVO: RÉCORDS PERSONALES: tus mejores marcas por ejercicio (se celebran al batirlas) -->
@@ -2718,24 +2723,23 @@
             </li>`)
             .join('');
 
-          // COMPACTA: nombre + recomendación en una fila; modalidad y consejo en 2 líneas como mucho;
-          // historial (plegado) y +1 serie en la misma fila.
-          return `<div class="tarjeta-ejercicio bg-slate-800/80 border border-slate-700 rounded-xl px-2 py-1.5 text-[11px] leading-snug">
-            <div class="flex justify-between items-baseline gap-2">
-              <span class="min-w-0 truncate font-semibold text-[13px]">${escaparHTML(ex.name)}</span>
+          // COMPACTA (2 filas): 1) nombre · recomendación · +1 serie  2) consejo en una línea; al tocarlo
+          // se despliega el consejo completo y el historial.
+          return `<div class="tarjeta-ejercicio bg-slate-800/80 border border-slate-700 rounded-xl px-2 py-1 text-[11px] leading-snug">
+            <div class="flex items-center gap-1.5 min-h-[28px]">
+              <span class="min-w-0 flex-1 truncate font-semibold text-[12.5px]">${escaparHTML(ex.name)}</span>
               <span class="shrink-0 text-emerald-400 font-semibold">${escaparHTML(prog.badge)}</span>
-            </div>
-            <p class="consejo-ejercicio text-sky-300" title="${escaparHTML(prog.tip)}"><span class="text-slate-500">${modalidad} · </span>${escaparHTML(prog.tip)}</p>
-            <div class="flex justify-between items-start gap-2 pt-0.5">
-              <details class="historial-ejercicio min-w-0 flex-1">
-                <summary class="cursor-pointer text-slate-400">Historial (${historial.length})</summary>
-                <ul class="space-y-0.5 pt-1 text-slate-300">${filas}</ul>
-              </details>
               ${ultimo.date === fechaSeleccionada()
                 ? `<button onclick="sumarSerieARegistro('${escaparHTML(ultimo.id)}')" title="Añadir una serie igual a la última de hoy"
-                    class="mini shrink-0 h-7 px-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-[11px] whitespace-nowrap">+1 serie</button>`
+                    class="mini shrink-0 h-7 px-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold rounded-lg text-[11px] whitespace-nowrap">+1 serie</button>`
                 : ''}
             </div>
+            <details class="historial-ejercicio">
+              <summary class="consejo-ejercicio cursor-pointer text-sky-300" title="Toca para ver el consejo completo y el historial"><span class="text-slate-500">📜 ${historial.length} ·</span> ${escaparHTML(prog.tip)}</summary>
+              <p class="text-sky-300 pt-0.5">${escaparHTML(prog.tip)}</p>
+              <p class="text-slate-500">${modalidad} · Historial (${historial.length})</p>
+              <ul class="space-y-0.5 pt-0.5 pb-0.5 text-slate-300">${filas}</ul>
+            </details>
           </div>`;
         })
         .join('');
