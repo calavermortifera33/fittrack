@@ -230,6 +230,10 @@
     html body #bloque-macros #margen-dia { border-top: 1px solid rgba(255, 255, 255, 0.08); }
     html body #bloque-comidas li.bg-slate-800\/70 { background: rgba(255, 255, 255, 0.06); }
     html body #seccion-nutri > .bloque-oscuro + .bloque-oscuro { margin-top: 0.6rem; }
+    html body #bloque-anadir { margin-top: 0.6rem; margin-bottom: 0.6rem; }
+    html body #bloque-anadir > .bloque-oscuro { padding: 0.55rem; }
+    /* Pantallas muy estrechas: un poco menos de relleno para que nada se desborde */
+    @media (max-width: 340px) { html body #bloque-anadir > .bloque-oscuro { padding: 0.45rem; } html body #bloque-anadir { gap: 0.4rem; } }
     /* Nutrición: un poco más de aire arriba (título, cajitas y macros no van pegados) */
     html body #seccion-nutri { padding-top: 0.75rem; }
     html body #titulo-nutricion { letter-spacing: .01em; }
@@ -575,25 +579,26 @@
 
     <!-- NUEVO: filtro rápido. Escribe parte del nombre y el desplegable de abajo
          se reduce al instante a los alimentos que coinciden (básicos y tuyos). Sin internet. -->
-    <!-- NUEVO: BLOQUE AÑADIR COMIDA: filtro, alimento a lo ancho (se lee entero) y gramos + botón -->
-    <div id="bloque-anadir" class="bloque-oscuro space-y-2">
-    <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos"
-      oninput="filtrarAlimentos()" onkeydown="if (event.key === 'Enter') document.getElementById('gramos-input').focus()"
-      class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-sm" />
-    <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1 empty:hidden"></p>
-
-      <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
-           así aparecen tanto los alimentos de base como los tuyos. -->
-    <div class="flex gap-2">
-      <select id="alimento-select" class="flex-1 min-w-0 bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-sm"></select>
-      <input id="gramos-input" type="number" inputmode="decimal" placeholder="g" min="1" class="min-w-0 w-20 sm:w-24 shrink-0 bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm text-center" />
-      <button onclick="addFood()" class="shrink-0 bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-3.5 py-1.5 rounded-xl text-sm">
-        +
-      </button>
+    <!-- NUEVO: AÑADIR COMIDA en dos cajitas paralelas:
+         izquierda (más ancha) = filtro + alimento; derecha = gramos + botón «+». -->
+    <div id="bloque-anadir" class="grid gap-2" style="display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap: 0.5rem;">
+      <div class="bloque-oscuro space-y-2 min-w-0">
+        <input id="filtro-alimentos" type="search" placeholder="🔎 Filtrar alimentos"
+          oninput="filtrarAlimentos()" onkeydown="if (event.key === 'Enter') document.getElementById('gramos-input').focus()"
+          class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-sm" />
+        <p id="info-filtro" class="text-[11px] text-slate-500 -mt-1 empty:hidden"></p>
+        <!-- Las opciones se rellenan desde el código (función rellenarSelectorAlimentos),
+             así aparecen tanto los alimentos de base como los tuyos. -->
+        <select id="alimento-select" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm"></select>
+      </div>
+      <div class="bloque-oscuro min-w-0 flex flex-col gap-2 justify-between" style="display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem;">
+        <input id="gramos-input" type="number" inputmode="decimal" placeholder="g" min="1" class="min-w-0 w-full bg-slate-800 border border-slate-700 rounded-xl px-2 py-1.5 text-sm text-center" />
+        <button onclick="addFood()" class="w-full bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-2 py-1.5 rounded-xl text-sm">
+          + Añadir
+        </button>
+      </div>
     </div>
-    </div>
 
-    <!-- NUEVO: copiar de un toque las comidas del día anterior (solo sale si ese día tiene comidas) -->
     <!-- NUEVO: BLOQUE COMIDAS DEL DÍA -->
     <div id="bloque-comidas" class="bloque-oscuro">
       <ul id="lista-comidas" class="space-y-1.5 text-xs text-slate-300"></ul>
